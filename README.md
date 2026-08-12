@@ -1,32 +1,39 @@
-# React + TypeScript + Vite
+#  RialoPulse
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+> Real-Time Telemetry & Developer Sandbox for the Rialo Ecosystem.
 
-Currently, two official plugins are available:
+**RialoPulse** is an infrastructure monitoring dashboard and developer sandbox designed to provide real-time metrics, node telemetry, and an interactive environment for developers building on the Rialo network.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+##  Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+-  **Real-time Telemetry:** Monitor RPC latency, live block heights, average block times, and network TPS.
+-  **Developer Sandbox:** Test custom RPC calls and interact with smart contract events directly from the UI.
+-  **Node Health & Peers:** Track active network peers and RPC endpoint statuses (Online / Degraded / Offline).
+-  **Developer Toolkit:** Quick chain configuration, testnet faucet integration, and one-click wallet connectivity.
 
-## Expanding the Oxlint configuration
+---
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+##  Tech Stack
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
+- **Framework:** Next.js / React
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS
+- **Web3 Integration:** Ethers.js / Viem
+- **Icons:** Lucide React
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+---
+
+##  Getting Started
+
+### Prerequisites
+
+Ensure you have Node.js (v18 or higher) and npm installed on your machine.
+
+### Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/YOUR_USERNAME/RialoPulse.git](https://github.com/YOUR_USERNAME/RialoPulse.git)
+   cd RialoPulse
