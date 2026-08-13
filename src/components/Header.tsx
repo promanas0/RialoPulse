@@ -44,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
               networkId: '7146'
             });
           }
-        } catch (e) {
+        } catch {
           // Default state update
         }
       } else {

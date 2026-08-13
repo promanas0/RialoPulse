@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { NetworkType, RpcEndpoint, NetworkMetrics, TpsDataPoint, PeerNode, ContractEvent, WalletState } from './types';
 import { INITIAL_RPC_ENDPOINTS, INITIAL_PEERS, INITIAL_EVENTS, RPC_PRESETS, INITIAL_FAUCET_STATUS } from './services/mockDataService';
+import { TelemetryEngine } from './services/telemetryService';
 import { Header } from './components/Header';
 import { TelemetryMetrics } from './components/TelemetryMetrics';
 import { PeerVisualizer } from './components/PeerVisualizer';
@@ -11,15 +12,15 @@ export function App() {
   const [activeTab, setActiveTab] = useState<string>('telemetry');
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkType>('Testnet');
 
-  // Core state
+  // Core telemetry state
   const [rpcEndpoints, setRpcEndpoints] = useState<RpcEndpoint[]>(INITIAL_RPC_ENDPOINTS);
-  const [peers] = useState<PeerNode[]>(INITIAL_PEERS);
+  const [peers, setPeers] = useState<PeerNode[]>(INITIAL_PEERS);
   const [events, setEvents] = useState<ContractEvent[]>(INITIAL_EVENTS);
   
   const [walletState, setWalletState] = useState<WalletState>({
     address: null,
     isConnected: false,
-    balanceRialo: '0.00',
+    balanceRialo: '250.00',
     networkId: null
   });
 
@@ -44,82 +45,46 @@ export function App() {
     { time: '12:50', tps: 18420, blockHeight: 18492042, gasUsed: 50 }
   ]);
 
-  // Handle Real-Time Live Ticker Loop
+  const engineRef = useRef<TelemetryEngine | null>(null);
+
+  // Initialize Telemetry Engine
   useEffect(() => {
-    const timer = setInterval(() => {
-      // Increment block height (simulate 50ms fast block runtime)
-      setMetrics((prev) => {
-        const nextBlock = prev.currentBlockHeight + 1;
-        const tpsJitter = Math.floor(Math.random() * 1200) - 600;
-        const newTps = Math.max(14000, Math.min(26000, prev.liveTps + tpsJitter));
+    const engine = new TelemetryEngine(INITIAL_RPC_ENDPOINTS);
+    engineRef.current = engine;
 
-        return {
-          ...prev,
-          currentBlockHeight: nextBlock,
-          liveTps: newTps,
-          rexExecutionCount: prev.rexExecutionCount + Math.floor(Math.random() * 3 + 1)
-        };
-      });
+    const unsubscribe = engine.subscribe((newMetrics, newHistory, newEndpoints) => {
+      setMetrics(newMetrics);
+      setTpsHistory(newHistory);
+      setRpcEndpoints(newEndpoints);
 
-      // Periodically update TPS history chart
-      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      setTpsHistory((prev) => {
-        const lastTps = prev[prev.length - 1]?.tps || 18000;
-        const jitter = Math.floor(Math.random() * 800) - 400;
-        const newPoint = {
-          time: nowStr,
-          tps: Math.max(12000, Math.min(25000, lastTps + jitter)),
-          blockHeight: metrics.currentBlockHeight,
-          gasUsed: Math.floor(Math.random() * 20 + 40)
-        };
-        const updated = [...prev.slice(1), newPoint];
-        return updated;
-      });
+      // Keep peers block height in sync with current network block height
+      setPeers(prev => prev.map(p => ({
+        ...p,
+        blockHeight: p.status === 'synced' ? newMetrics.currentBlockHeight : newMetrics.currentBlockHeight - 4,
+        pingMs: Math.max(10, p.pingMs + (newMetrics.currentBlockHeight % 3) - 1)
+      })));
+    });
 
-      // Periodically stream a new contract event log
-      if (Math.random() > 0.4) {
-        const isRex = Math.random() > 0.6;
-        const eventNames = isRex
-          ? ['REXExecutionCommit', 'REXConfidentialCompute', 'ZkProofVerify']
-          : ['Transfer', 'GaslessExecution', 'StateCommitment', 'Approval'];
-        const chosenEvent = eventNames[Math.floor(Math.random() * eventNames.length)];
+    engine.start();
 
-        const newEvt: ContractEvent = {
-          id: `evt-${Date.now()}`,
-          timestamp: new Date().toLocaleTimeString(),
-          blockNumber: metrics.currentBlockHeight,
-          txHash: `0x${Math.random().toString(16).substring(2, 18)}${Math.random().toString(16).substring(2, 18)}`,
-          eventName: chosenEvent,
-          contractAddress: `0x${Math.random().toString(16).substring(2, 10)}...${Math.random().toString(16).substring(2, 6)}`,
-          dataSummary: isRex
-            ? `zkProof: verified, cycles: ${Math.floor(Math.random() * 3000 + 1000)}, stateHash: 0x${Math.random().toString(16).substring(2, 8)}`
-            : `txSender: 0x${Math.random().toString(16).substring(2, 6)}, gasPaid: 0.000${Math.floor(Math.random() * 9 + 1)} RIALO`,
-          isRexConfidential: isRex
-        };
-
-        setEvents((prev) => [newEvt, ...prev.slice(0, 19)]);
-      }
-
-      // Latency jitter for RPC endpoints
-      setRpcEndpoints((prev) =>
-        prev.map((ep) => ({
-          ...ep,
-          latencyMs: Math.max(8, ep.latencyMs + Math.floor(Math.random() * 5) - 2)
-        }))
-      );
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [metrics.currentBlockHeight]);
+    return () => {
+      unsubscribe();
+      engine.stop();
+    };
+  }, []);
 
   const handleRefreshPings = () => {
-    setRpcEndpoints((prev) =>
-      prev.map((ep) => ({
-        ...ep,
-        latencyMs: Math.floor(Math.random() * 25) + 12,
-        lastChecked: 'Just now'
-      }))
-    );
+    if (engineRef.current) {
+      engineRef.current.pingAllEndpoints();
+    }
+  };
+
+  const handleAddContractEvent = (newEvent: ContractEvent) => {
+    setEvents(prev => [newEvent, ...prev.slice(0, 19)]);
+  };
+
+  const handleAddCustomPeer = (newPeer: PeerNode) => {
+    setPeers(prev => [newPeer, ...prev]);
   };
 
   return (
@@ -147,7 +112,11 @@ export function App() {
         )}
 
         {activeTab === 'peers' && (
-          <PeerVisualizer peers={peers} />
+          <PeerVisualizer
+            peers={peers}
+            onAddPeer={handleAddCustomPeer}
+            currentBlockHeight={metrics.currentBlockHeight}
+          />
         )}
 
         {activeTab === 'sandbox' && (
@@ -156,6 +125,8 @@ export function App() {
             rpcPresets={RPC_PRESETS}
             rpcEndpoints={rpcEndpoints}
             onClearEvents={() => setEvents([])}
+            onAddEvent={handleAddContractEvent}
+            currentBlockHeight={metrics.currentBlockHeight}
           />
         )}
 
@@ -163,6 +134,9 @@ export function App() {
           <DevToolkit
             faucetStatus={INITIAL_FAUCET_STATUS}
             walletState={walletState}
+            setWalletState={setWalletState}
+            onAddEvent={handleAddContractEvent}
+            currentBlockHeight={metrics.currentBlockHeight}
           />
         )}
       </main>

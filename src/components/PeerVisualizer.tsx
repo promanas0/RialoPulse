@@ -1,32 +1,95 @@
 import React, { useState } from 'react';
 import type { PeerNode } from '../types';
-import { Globe, Server, Activity, ShieldCheck, MapPin } from 'lucide-react';
+import { Globe, Server, Activity, ShieldCheck, MapPin, Search, PlusCircle, X } from 'lucide-react';
 
 interface PeerVisualizerProps {
   peers: PeerNode[];
+  onAddPeer?: (peer: PeerNode) => void;
+  currentBlockHeight: number;
 }
 
-export const PeerVisualizer: React.FC<PeerVisualizerProps> = ({ peers }) => {
+export const PeerVisualizer: React.FC<PeerVisualizerProps> = ({
+  peers,
+  onAddPeer,
+  currentBlockHeight
+}) => {
   const [selectedRegion, setSelectedRegion] = useState<string>('All');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<'All' | 'synced' | 'syncing'>('All');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [hoveredPeer, setHoveredPeer] = useState<PeerNode | null>(null);
+
+  // Add peer modal state
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newNodeName, setNewNodeName] = useState('');
+  const [newRegion, setNewRegion] = useState('North America');
+  const [newCountry, setNewCountry] = useState('United States');
+  const [newLat, setNewLat] = useState('37.77');
+  const [newLng, setNewLng] = useState('-122.41');
 
   const regions = ['All', 'North America', 'Europe', 'Asia Pacific', 'South America'];
 
-  const filteredPeers = selectedRegion === 'All'
-    ? peers
-    : peers.filter(p => p.region === selectedRegion);
+  // Calculate dynamic sync status & peer filtering
+  const processedPeers = peers.map(p => {
+    const isSynced = Math.abs(currentBlockHeight - p.blockHeight) <= 2;
+    return {
+      ...p,
+      status: (isSynced ? 'synced' : 'syncing') as 'synced' | 'syncing'
+    };
+  });
 
-  const syncedCount = peers.filter(p => p.status === 'synced').length;
-  const syncingCount = peers.filter(p => p.status === 'syncing').length;
-  const avgPing = Math.round(peers.reduce((acc, p) => acc + p.pingMs, 0) / peers.length);
+  const filteredPeers = processedPeers.filter(p => {
+    const matchesRegion = selectedRegion === 'All' || p.region === selectedRegion;
+    const matchesStatus = selectedStatusFilter === 'All' || p.status === selectedStatusFilter;
+    const query = searchQuery.toLowerCase().trim();
+    const matchesSearch = !query || 
+      p.nodeName.toLowerCase().includes(query) ||
+      p.country.toLowerCase().includes(query) ||
+      p.region.toLowerCase().includes(query) ||
+      p.version.toLowerCase().includes(query);
 
-  // Simple coordinate projection for standard equirectangular world map representation
+    return matchesRegion && matchesStatus && matchesSearch;
+  });
+
+  const syncedCount = processedPeers.filter(p => p.status === 'synced').length;
+  const syncingCount = processedPeers.filter(p => p.status === 'syncing').length;
+  const avgPing = processedPeers.length > 0 
+    ? Math.round(processedPeers.reduce((acc, p) => acc + p.pingMs, 0) / processedPeers.length) 
+    : 0;
+
+  // Simple coordinate projection for world map representation
   const projectCoords = (lat: number, lng: number) => {
-    // Map lng from -180..180 to 0..100
     const x = ((lng + 180) / 360) * 100;
-    // Map lat from 90..-90 to 0..100
     const y = ((90 - lat) / 180) * 100;
     return { x, y };
+  };
+
+  const handleAddPeerSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNodeName.trim()) return;
+
+    const latNum = parseFloat(newLat) || 0;
+    const lngNum = parseFloat(newLng) || 0;
+
+    const createdPeer: PeerNode = {
+      id: `custom-node-${Date.now()}`,
+      nodeName: newNodeName.trim(),
+      version: 'v0.9.4-rex-parallel',
+      region: newRegion,
+      country: newCountry.trim() || 'Global',
+      lat: latNum,
+      lng: lngNum,
+      status: 'synced',
+      uptimePct: 99.99,
+      pingMs: Math.floor(Math.random() * 20) + 12,
+      blockHeight: currentBlockHeight
+    };
+
+    if (onAddPeer) {
+      onAddPeer(createdPeer);
+    }
+
+    setNewNodeName('');
+    setIsAddModalOpen(false);
   };
 
   return (
@@ -39,8 +102,8 @@ export const PeerVisualizer: React.FC<PeerVisualizerProps> = ({ peers }) => {
             <Globe className="w-4 h-4 text-rialo-accent" />
           </div>
           <div className="mt-3">
-            <span className="text-3xl font-bold font-mono text-rialo-text">{peers.length * 18 + 4}</span>
-            <div className="text-xs text-rialo-subtext mt-1 font-mono">148 Total Validator Network Nodes</div>
+            <span className="text-3xl font-bold font-mono text-rialo-text">{processedPeers.length}</span>
+            <div className="text-xs text-rialo-subtext mt-1 font-mono">148 Validator Network Nodes</div>
           </div>
         </div>
 
@@ -68,7 +131,7 @@ export const PeerVisualizer: React.FC<PeerVisualizerProps> = ({ peers }) => {
           </div>
           <div className="mt-3">
             <span className="text-3xl font-bold font-mono text-rialo-text">{avgPing} ms</span>
-            <div className="text-xs text-rialo-subtext mt-1 font-mono">Low-Latency Parallel Consensus</div>
+            <div className="text-xs text-rialo-subtext mt-1 font-mono">Measured Latency Matrix</div>
           </div>
         </div>
 
@@ -86,27 +149,38 @@ export const PeerVisualizer: React.FC<PeerVisualizerProps> = ({ peers }) => {
 
       {/* Interactive Global Map Visualizer */}
       <div className="bg-rialo-card border border-rialo-border p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-rialo-border gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-rialo-border gap-4">
           <div>
             <h3 className="font-display text-lg font-bold text-rialo-text">Geographic Peer Distribution</h3>
-            <p className="text-xs text-rialo-subtext mt-0.5">Live geolocation telemetry of active Rialo nodes</p>
+            <p className="text-xs text-rialo-subtext mt-0.5">Live geolocation telemetry of active Rialo validator nodes</p>
           </div>
 
-          {/* Region Filters */}
-          <div className="flex flex-wrap gap-1 bg-rialo-surface p-1 border border-rialo-border text-xs">
-            {regions.map((reg) => (
-              <button
-                key={reg}
-                onClick={() => setSelectedRegion(reg)}
-                className={`px-3 py-1 font-medium transition-colors ${
-                  selectedRegion === reg
-                    ? 'bg-rialo-card text-rialo-text border border-rialo-border shadow-sm'
-                    : 'text-rialo-subtext hover:text-rialo-text'
-                }`}
-              >
-                {reg}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Region Filters */}
+            <div className="flex flex-wrap gap-1 bg-rialo-surface p-1 border border-rialo-border text-xs">
+              {regions.map((reg) => (
+                <button
+                  key={reg}
+                  onClick={() => setSelectedRegion(reg)}
+                  className={`px-3 py-1 font-medium transition-colors ${
+                    selectedRegion === reg
+                      ? 'bg-rialo-card text-rialo-text border border-rialo-border shadow-sm'
+                      : 'text-rialo-subtext hover:text-rialo-text'
+                  }`}
+                >
+                  {reg}
+                </button>
+              ))}
+            </div>
+
+            {/* Add Node Button */}
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center space-x-1.5 bg-rialo-text text-rialo-bg hover:bg-rialo-dark px-3 py-1.5 text-xs font-mono font-semibold uppercase tracking-wider transition-colors border border-rialo-text"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>Monitor Custom Node</span>
+            </button>
           </div>
         </div>
 
@@ -174,10 +248,35 @@ export const PeerVisualizer: React.FC<PeerVisualizerProps> = ({ peers }) => {
         </div>
       </div>
 
-      {/* Node Telemetry Table */}
+      {/* Node Telemetry Table with Search & Filter */}
       <div className="bg-rialo-card border border-rialo-border p-6 overflow-x-auto">
-        <div className="pb-4 border-b border-rialo-border mb-4">
-          <h3 className="font-display text-lg font-bold text-rialo-text">Validator & Sequencer Telemetry Table</h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-rialo-border gap-4 mb-4">
+          <h3 className="font-display text-lg font-bold text-rialo-text">Validator & Sequencer Telemetry Matrix</h3>
+
+          <div className="flex items-center space-x-3 text-xs font-mono">
+            {/* Search Box */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-rialo-muted" />
+              <input
+                type="text"
+                placeholder="Search node, country..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-rialo-surface border border-rialo-border pl-8 pr-3 py-1.5 text-rialo-text focus:outline-none focus:border-rialo-text w-48 sm:w-64"
+              />
+            </div>
+
+            {/* Status Filter */}
+            <select
+              value={selectedStatusFilter}
+              onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
+              className="bg-rialo-surface border border-rialo-border px-2 py-1.5 text-rialo-text focus:outline-none focus:border-rialo-text"
+            >
+              <option value="All">All Sync Status</option>
+              <option value="synced">Synced Only</option>
+              <option value="syncing">Syncing Only</option>
+            </select>
+          </div>
         </div>
 
         <table className="w-full text-left font-mono text-xs">
@@ -192,39 +291,142 @@ export const PeerVisualizer: React.FC<PeerVisualizerProps> = ({ peers }) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-rialo-border">
-            {filteredPeers.map((peer) => (
-              <tr key={peer.id} className="hover:bg-rialo-surface/50 transition-colors">
-                <td className="py-3 font-medium text-rialo-text flex items-center space-x-2">
-                  <MapPin className="w-3.5 h-3.5 text-rialo-muted" />
-                  <span>{peer.nodeName}</span>
-                </td>
-                <td className="py-3 text-rialo-subtext">
-                  {peer.country} ({peer.region})
-                </td>
-                <td className="py-3 font-semibold text-rialo-text">
-                  {peer.pingMs} ms
-                </td>
-                <td className="py-3">
-                  <span className={`inline-flex items-center space-x-1.5 ${
-                    peer.status === 'synced' ? 'text-status-online' : 'text-status-degraded'
-                  }`}>
-                    <span className={`w-2 h-2 rounded-full ${
-                      peer.status === 'synced' ? 'bg-status-online' : 'bg-status-degraded'
-                    }`}></span>
-                    <span className="uppercase text-[11px] font-semibold">{peer.status}</span>
-                  </span>
-                </td>
-                <td className="py-3 text-rialo-subtext">
-                  {peer.uptimePct}%
-                </td>
-                <td className="py-3 text-right text-rialo-text font-bold">
-                  #{peer.blockHeight.toLocaleString()}
+            {filteredPeers.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-6 text-center text-rialo-muted font-sans">
+                  No validator nodes found matching query criteria.
                 </td>
               </tr>
-            ))}
+            ) : (
+              filteredPeers.map((peer) => (
+                <tr key={peer.id} className="hover:bg-rialo-surface/50 transition-colors">
+                  <td className="py-3 font-medium text-rialo-text flex items-center space-x-2">
+                    <MapPin className="w-3.5 h-3.5 text-rialo-muted" />
+                    <span>{peer.nodeName}</span>
+                  </td>
+                  <td className="py-3 text-rialo-subtext">
+                    {peer.country} ({peer.region})
+                  </td>
+                  <td className="py-3 font-semibold text-rialo-text">
+                    {peer.pingMs} ms
+                  </td>
+                  <td className="py-3">
+                    <span className={`inline-flex items-center space-x-1.5 ${
+                      peer.status === 'synced' ? 'text-status-online' : 'text-status-degraded'
+                    }`}>
+                      <span className={`w-2 h-2 rounded-full ${
+                        peer.status === 'synced' ? 'bg-status-online' : 'bg-status-degraded'
+                      }`}></span>
+                      <span className="uppercase text-[11px] font-semibold">{peer.status}</span>
+                    </span>
+                  </td>
+                  <td className="py-3 text-rialo-subtext">
+                    {peer.uptimePct}%
+                  </td>
+                  <td className="py-3 text-right text-rialo-text font-bold">
+                    #{peer.blockHeight.toLocaleString()}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
+
+      {/* Add Custom Peer Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-rialo-card border border-rialo-border p-6 max-w-md w-full font-sans">
+            <div className="flex items-center justify-between pb-3 border-b border-rialo-border">
+              <h3 className="font-display text-lg font-bold text-rialo-text">Monitor Custom Validator Node</h3>
+              <button onClick={() => setIsAddModalOpen(false)} className="text-rialo-muted hover:text-rialo-text">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddPeerSubmit} className="mt-4 space-y-3 font-mono text-xs">
+              <div>
+                <label className="block text-rialo-muted uppercase tracking-wider text-[11px] mb-1">Node Identifier / Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Validator-Tokyo-09"
+                  value={newNodeName}
+                  onChange={(e) => setNewNodeName(e.target.value)}
+                  className="w-full bg-rialo-surface border border-rialo-border text-rialo-text p-2 focus:outline-none focus:border-rialo-text"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-rialo-muted uppercase tracking-wider text-[11px] mb-1">Region</label>
+                  <select
+                    value={newRegion}
+                    onChange={(e) => setNewRegion(e.target.value)}
+                    className="w-full bg-rialo-surface border border-rialo-border text-rialo-text p-2 focus:outline-none focus:border-rialo-text"
+                  >
+                    <option value="North America">North America</option>
+                    <option value="Europe">Europe</option>
+                    <option value="Asia Pacific">Asia Pacific</option>
+                    <option value="South America">South America</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-rialo-muted uppercase tracking-wider text-[11px] mb-1">Country</label>
+                  <input
+                    type="text"
+                    placeholder="Japan"
+                    value={newCountry}
+                    onChange={(e) => setNewCountry(e.target.value)}
+                    className="w-full bg-rialo-surface border border-rialo-border text-rialo-text p-2 focus:outline-none focus:border-rialo-text"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-rialo-muted uppercase tracking-wider text-[11px] mb-1">Latitude</label>
+                  <input
+                    type="text"
+                    placeholder="35.67"
+                    value={newLat}
+                    onChange={(e) => setNewLat(e.target.value)}
+                    className="w-full bg-rialo-surface border border-rialo-border text-rialo-text p-2 focus:outline-none focus:border-rialo-text"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-rialo-muted uppercase tracking-wider text-[11px] mb-1">Longitude</label>
+                  <input
+                    type="text"
+                    placeholder="139.65"
+                    value={newLng}
+                    onChange={(e) => setNewLng(e.target.value)}
+                    className="w-full bg-rialo-surface border border-rialo-border text-rialo-text p-2 focus:outline-none focus:border-rialo-text"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 border border-rialo-border text-rialo-subtext hover:text-rialo-text"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-rialo-text text-rialo-bg font-bold uppercase tracking-wider hover:bg-rialo-dark"
+                >
+                  Add Node
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
