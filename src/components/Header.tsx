@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { NetworkType } from '../types';
 import { useWallet } from '../context/WalletContext';
 import { playClickSound, toggleSound, isSoundEnabled } from '../services/soundService';
-import { Activity, Cpu, Globe, Terminal, Wrench, Droplets, Wallet, AlertTriangle, Volume2, VolumeX, Sparkles } from 'lucide-react';
+import { Activity, Cpu, Globe, Terminal, Wrench, Droplets, Wallet, AlertTriangle, Volume2, VolumeX, Sparkles, Gamepad2 } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: string;
@@ -42,6 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const navItems = [
     { id: 'overview', label: 'Overview', icon: Sparkles },
+    { id: 'game', label: 'Market Reflex 🎮', icon: Gamepad2 },
     { id: 'telemetry', label: 'Core Telemetry', icon: Activity },
     { id: 'peers', label: 'Nodes & Peers', icon: Globe },
     { id: 'sandbox', label: 'Contract Sandbox', icon: Terminal },

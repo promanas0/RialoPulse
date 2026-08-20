@@ -12,6 +12,7 @@ import { TelemetryMetrics } from './components/TelemetryMetrics';
 import { PeerVisualizer } from './components/PeerVisualizer';
 import { ContractSandbox } from './components/ContractSandbox';
 import { DevToolkit } from './components/DevToolkit';
+import { MarketReflexGame } from './components/MarketReflexGame';
 import { WalletConnectModal } from './components/WalletConnectModal';
 import { AccountModal } from './components/AccountModal';
 import { WrongNetworkBanner } from './components/WrongNetworkBanner';
@@ -132,7 +133,29 @@ function DashboardContent() {
             {/* 2. Auto-scrolling Infinite Marquee Tech Strip */}
             <MarqueeStrip />
 
-            {/* 3. Live On-Chain Interactive CLI Terminal Playground */}
+            {/* 3. Market Reflex Arcade Quick Launch Banner */}
+            <div className="relative overflow-hidden border border-rialo-accent/40 bg-gradient-to-r from-rialo-accent/10 via-rialo-surface to-rialo-cyan/10 p-6 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
+              <div className="space-y-1.5 text-center sm:text-left">
+                <div className="inline-flex items-center space-x-2 px-2.5 py-0.5 bg-rialo-accent text-white text-[10px] font-mono font-bold uppercase tracking-wider">
+                  <span>Arcade Reflex Challenge</span>
+                </div>
+                <h3 className="font-display text-xl sm:text-2xl font-bold text-rialo-text">
+                  Can Your Reflexes Beat Rialo's 50ms Block Finality?
+                </h3>
+                <p className="text-xs text-rialo-subtext font-sans max-w-xl">
+                  Test your microsecond instincts in the Market Reflex Game. Match live streaming candlesticks, build combo streaks, and claim testnet token rewards!
+                </p>
+              </div>
+
+              <button
+                onClick={() => setActiveTab('game')}
+                className="bg-rialo-accent hover:bg-rialo-accent-hover text-white px-6 py-3.5 text-xs font-mono font-bold uppercase tracking-widest transition-all shadow-lg hover:shadow-rialo-accent/30 shrink-0 cursor-pointer"
+              >
+                PLAY REFLEX GAME 🎮
+              </button>
+            </div>
+
+            {/* 4. Live On-Chain Interactive CLI Terminal Playground */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -152,11 +175,18 @@ function DashboardContent() {
               <InteractiveCliTerminal />
             </div>
 
-            {/* 4. Bento Grid Architectural Highlights */}
+            {/* 5. Bento Grid Architectural Highlights */}
             <BentoGrid
               onNavigateTab={setActiveTab}
               currentBlockHeight={metrics.currentBlockHeight}
             />
+          </div>
+        )}
+
+        {/* Market Reflex Arcade Game Tab */}
+        {activeTab === 'game' && (
+          <div className="animate-in fade-in duration-300">
+            <MarketReflexGame />
           </div>
         )}
 
