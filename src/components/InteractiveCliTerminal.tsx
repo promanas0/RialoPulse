@@ -66,13 +66,15 @@ export const InteractiveCliTerminal: React.FC = () => {
         id: `out-${Date.now()}`,
         type: 'output',
         content: `Available Interactive Commands:
-  • status    - Check live Rialo validator quorum & consensus health
-  • faucet    - Instant testnet drip (100.00 RIALO) to active wallet
-  • tps       - Stream live throughput & parallel transaction velocity
-  • nodes     - Query validator latency matrix across global peers
-  • rex       - Inspect confidential compute & Zero-Knowledge VM state
-  • wallet    - Inspect active Web3 session address & balance
-  • clear     - Clear terminal buffer`
+  • status     - Check live Rialo validator quorum & consensus health
+  • genesis    - Inspect official SubzeroLabs genesis config & hash
+  • validators - List official genesis validator nodes & providers
+  • faucet     - Instant testnet drip (100.00 RIALO) to active wallet
+  • tps        - Stream live throughput & parallel transaction velocity
+  • nodes      - Query validator latency matrix across global peers
+  • rex        - Inspect confidential compute & Zero-Knowledge VM state
+  • wallet     - Inspect active Web3 session address & balance
+  • clear      - Clear terminal buffer`
       });
     } else if (lower === 'status') {
       newLines.push({
@@ -147,6 +149,32 @@ export const InteractiveCliTerminal: React.FC = () => {
 > Worker Threads: 32 parallel pipelines
 > State Root: 0x8f7a1b9c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a
 > Confidential Execution: ACTIVE [CONFIRMED]`
+      });
+    } else if (lower === 'genesis') {
+      newLines.push({
+        id: `out-${Date.now()}`,
+        type: 'success',
+        content: `> SubzeroLabs Genesis Registry (SubzeroLabs/rialo-testnet):
+  • Config Hash: b1cdca444af9a8e74f56fd9140c9820e3fa162e833cee90192383b1a9335d0f6
+  • Creation Timestamp: 1765313149509 (Genesis Verified)
+  • Default P2P Port: UDP 4000
+  • Genesis Multi-Sig Quorum: 13 Proposer Signatures [VALID]
+  • Core Seed: /dns/node0.testnet.rialo.io/udp/4000`
+      });
+    } else if (lower === 'validators') {
+      newLines.push({
+        id: `out-${Date.now()}`,
+        type: 'output',
+        content: `Official Genesis Validator Quorum:
+  [1] node0.testnet.rialo.io (Subzero Core Genesis)
+  [2] node1.testnet.rialo.io (Subzero Core Germany)
+  [3] node2.testnet.rialo.io (Subzero Core Japan)
+  [4] testnet-validator.rialo.p2p.org (P2P.org Validator)
+  [5] rialo-testnet-validator.keplr.app (Keplr Staking)
+  [6] rialo-testnet-validator.nodeinfra.com (NodeInfra Validator)
+  [7] rialo-testnet-validator.bharvest.io (B-Harvest Validator)
+  [8] rialo-tn-val.citadel.one (Citadel.one Validator)
+  [9] rialo.validator.infstones.com (InfStones Validator)`
       });
     } else if (lower === 'wallet') {
       newLines.push({
@@ -259,6 +287,13 @@ export const InteractiveCliTerminal: React.FC = () => {
           className="px-2 py-0.5 bg-rialo-card hover:bg-rialo-border text-rialo-text border border-rialo-border shrink-0 transition-colors"
         >
           nodes
+        </button>
+        <button
+          onClick={() => handleCommand('genesis')}
+          className="px-2 py-0.5 bg-rialo-card hover:bg-rialo-border text-rialo-text border border-rialo-border shrink-0 flex items-center space-x-1 transition-colors"
+        >
+          <Shield className="w-3 h-3 text-rialo-accent" />
+          <span>genesis</span>
         </button>
         <button
           onClick={() => handleCommand('rex')}

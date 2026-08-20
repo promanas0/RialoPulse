@@ -258,6 +258,38 @@ const simulateOrFetchRpc = async (url: string, payload: any): Promise<any> => {
     return { result: `0x${(txCount % 48 + 5).toString(16)}` };
   }
 
+  if (payload.method === 'rialo_getGenesisConfig') {
+    return {
+      result: {
+        genesisRegistry: 'SubzeroLabs/rialo-testnet',
+        configHash: 'b1cdca444af9a8e74f56fd9140c9820e3fa162e833cee90192383b1a9335d0f6',
+        creationTime: 1765313149509,
+        verifiedGenesisValidators: 13,
+        defaultP2PPort: 4000,
+        consensusProtocol: 'Rialo Parallel Proposer (RPP)',
+        rexRuntimeVersion: 'v0.9.4',
+        stateRootStatus: 'VERIFIED_GENESIS'
+      }
+    };
+  }
+
+  if (payload.method === 'rialo_getGenesisSignatures') {
+    return {
+      result: {
+        configHash: 'b1cdca444af9a8e74f56fd9140c9820e3fa162e833cee90192383b1a9335d0f6',
+        signaturesCount: 13,
+        proposerSignatures: [
+          { signer: '001d7eb6...56d56a', validator: 'node0.testnet.rialo.io', status: 'VALID' },
+          { signer: '65a7fa3d...3848dd30', validator: 'testnet-validator.rialo.p2p.org', status: 'VALID' },
+          { signer: '667ce960...9a3d7824', validator: 'rialo-testnet-validator.keplr.app', status: 'VALID' },
+          { signer: '4faa7390...621cb407', validator: 'rialo-testnet-validator.nodeinfra.com', status: 'VALID' },
+          { signer: '5046ab17...6a81d50', validator: 'rialo-testnet-validator.bharvest.io', status: 'VALID' },
+          { signer: 'ff5cb41a...8aaf6a5a', validator: 'rialo.validator.infstones.com', status: 'VALID' }
+        ]
+      }
+    };
+  }
+
   if (payload.method === 'eth_getBlockByNumber') {
     return {
       result: {
