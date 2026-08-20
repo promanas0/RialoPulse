@@ -58,12 +58,12 @@ export const ContractSandbox: React.FC<ContractSandboxProps> = ({
 
     if (res.status === 'success') {
       showTxSuccess(
-        `RPC ${customMethod} Executed! ✅`,
+        `RPC ${customMethod} Executed`,
         hexHash,
         `Execution time: ${res.executionTimeMs}ms. Response received.`
       );
     } else {
-      showTxError(`RPC ${customMethod} Failed ❌`, res.error || 'Execution error');
+      showTxError(`RPC ${customMethod} Failed`, res.error || 'Execution error');
     }
 
     if (!isStreamPaused) {
@@ -101,7 +101,7 @@ export const ContractSandbox: React.FC<ContractSandboxProps> = ({
         dataSummary: `zkProof: verified, cycles: ${3200 + (txId % 1500)}, memoryStateRoot: 0x8f7a...fa`,
         isRexConfidential: true
       };
-      showTxSuccess('REX Confidential Compute Confirmed! 🛡️', sampleTxHash, 'Zero-knowledge proof verified in 50ms block.');
+      showTxSuccess('REX Confidential Compute Confirmed', sampleTxHash, 'Zero-knowledge proof verified in 50ms block.');
     } else if (type === 'GASLESS') {
       sampleTxHash = `0x${(txId * 23).toString(16)}${(txId * 37).toString(16)}`.substring(0, 42);
       newEvt = {
@@ -114,7 +114,7 @@ export const ContractSandbox: React.FC<ContractSandboxProps> = ({
         dataSummary: 'relayer: 0x11...88, sponsor: RialoDevnetPaymaster, gasPaid: 0.000000 RIALO',
         isRexConfidential: false
       };
-      showTxSuccess('Gasless Paymaster Tx Confirmed! ⚡', sampleTxHash, 'Sponsored by Rialo Devnet Paymaster.');
+      showTxSuccess('Gasless Paymaster Tx Confirmed', sampleTxHash, 'Sponsored by Rialo Devnet Paymaster.');
     } else {
       sampleTxHash = `0x${(txId * 13).toString(16)}${(txId * 29).toString(16)}`.substring(0, 42);
       newEvt = {

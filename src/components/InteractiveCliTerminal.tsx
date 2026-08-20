@@ -17,7 +17,7 @@ export const InteractiveCliTerminal: React.FC = () => {
     {
       id: 'init-1',
       type: 'system',
-      content: '⚡ Rialo Extended Execution (REX) CLI Playground v0.9.4 initialized.'
+      content: 'Rialo Extended Execution (REX) CLI Playground v0.9.4 initialized.'
     },
     {
       id: 'init-2',

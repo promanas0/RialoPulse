@@ -236,14 +236,14 @@ export const DevToolkit: React.FC<DevToolkitProps> = ({
             {lastDripTxHash && (
               <div className="mt-4 p-3 bg-status-online/10 border border-status-online/30 text-xs font-mono">
                 <div className="text-status-online font-bold flex items-center justify-between">
-                  <span>Drip Confirmed on Rialo Block! ✅</span>
+                  <span>Drip Confirmed on Rialo Block</span>
                   <a
                     href={`https://explorer.rialo.io/tx/${lastDripTxHash}`}
                     target="_blank"
                     rel="noreferrer"
                     className="text-rialo-text hover:underline text-[10px] uppercase flex items-center space-x-1"
                   >
-                    <span>Explorer ↗</span>
+                    <span>Explorer</span>
                   </a>
                 </div>
                 <div className="text-rialo-subtext mt-1 truncate text-[11px]">Tx Hash: {lastDripTxHash}</div>

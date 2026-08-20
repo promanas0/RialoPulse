@@ -42,7 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const navItems = [
     { id: 'overview', label: 'Overview', icon: Sparkles },
-    { id: 'game', label: 'Market Reflex 🎮', icon: Gamepad2 },
+    { id: 'game', label: 'Market Reflex', icon: Gamepad2 },
     { id: 'telemetry', label: 'Core Telemetry', icon: Activity },
     { id: 'peers', label: 'Nodes & Peers', icon: Globe },
     { id: 'sandbox', label: 'Contract Sandbox', icon: Terminal },

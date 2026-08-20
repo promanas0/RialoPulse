@@ -16,6 +16,7 @@ import { MarketReflexGame } from './components/MarketReflexGame';
 import { WalletConnectModal } from './components/WalletConnectModal';
 import { AccountModal } from './components/AccountModal';
 import { WrongNetworkBanner } from './components/WrongNetworkBanner';
+import { Gamepad2 } from 'lucide-react';
 import { Toaster } from 'sonner';
 
 function DashboardContent() {
@@ -149,9 +150,10 @@ function DashboardContent() {
 
               <button
                 onClick={() => setActiveTab('game')}
-                className="bg-rialo-accent hover:bg-rialo-accent-hover text-white px-6 py-3.5 text-xs font-mono font-bold uppercase tracking-widest transition-all shadow-lg hover:shadow-rialo-accent/30 shrink-0 cursor-pointer"
+                className="bg-rialo-accent hover:bg-rialo-accent-hover text-white px-6 py-3.5 text-xs font-mono font-bold uppercase tracking-widest transition-all shadow-lg hover:shadow-rialo-accent/30 shrink-0 cursor-pointer flex items-center space-x-2"
               >
-                PLAY REFLEX GAME 🎮
+                <Gamepad2 className="w-4 h-4" />
+                <span>Play Reflex Game</span>
               </button>
             </div>
 

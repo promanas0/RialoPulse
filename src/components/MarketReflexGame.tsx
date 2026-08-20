@@ -18,17 +18,32 @@ import {
   Droplets,
   Flame,
   Activity,
-  Play
+  Play,
+  Crosshair,
+  ShieldAlert
 } from 'lucide-react';
 
-interface Candle {
+interface CandleData {
   id: number;
-  type: 'up' | 'down'; // 'up' = green, 'down' = red
-  x: number; // percentage or px position (1000 = right edge, 0 = left edge)
-  height: number;
-  wickHeight: number;
+  type: 'up' | 'down';
+  x: number;
+  openPrice: number;
+  closePrice: number;
+  highPrice: number;
+  lowPrice: number;
+  volume: number;
   hit: boolean;
   missed: boolean;
+}
+
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  color: string;
+  size: number;
+  alpha: number;
 }
 
 interface FloatingFeedback {
@@ -43,7 +58,7 @@ interface FloatingFeedback {
 export const MarketReflexGame: React.FC = () => {
   const { triggerFaucetDrip } = useWallet();
 
-  // Game state
+  // Game states
   const [gameState, setGameState] = useState<'idle' | 'playing' | 'gameover'>('idle');
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(() => {
@@ -60,26 +75,30 @@ export const MarketReflexGame: React.FC = () => {
   const [successfulHits, setSuccessfulHits] = useState(0);
   const [isClaimingFaucet, setIsClaimingFaucet] = useState(false);
   const [feedbacks, setFeedbacks] = useState<FloatingFeedback[]>([]);
+  const [currentLivePrice, setCurrentLivePrice] = useState(142.50);
 
-  // Refs for animation loop
-  const candlesRef = useRef<Candle[]>([]);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Engine refs
+  const candlesRef = useRef<CandleData[]>([]);
+  const particlesRef = useRef<Particle[]>([]);
   const nextCandleId = useRef(1);
   const lastSpawnTime = useRef(0);
   const animFrameId = useRef<number | null>(null);
   const lastFrameTime = useRef(0);
-  const currentSpeed = useRef(350); // pixels per second
-  const containerRef = useRef<HTMLDivElement>(null);
+  const currentSpeed = useRef(320); // px/sec
+  const lastPrice = useRef(142.50);
 
-  // Target Crosshair Position (px from left of container)
+  // Target Crosshair Position
   const targetX = 160;
-  const hitTolerance = 65; // px
+  const hitTolerance = 60; // px
 
-  // Calculate Rank based on score
   const getRank = (finalScore: number) => {
-    if (finalScore >= 3000) return { title: '50ms Diamond Reflex Master 💎', color: 'text-rialo-accent' };
-    if (finalScore >= 1500) return { title: 'High-Frequency Arbitrageur 🤖', color: 'text-rialo-cyan' };
-    if (finalScore >= 500) return { title: 'Degen Scalper ⚡', color: 'text-status-online-bright' };
-    return { title: 'Paper Hands 📄', color: 'text-rialo-subtext' };
+    if (finalScore >= 3000) return { title: 'Diamond Reflex Trader', color: 'text-rialo-accent' };
+    if (finalScore >= 1500) return { title: 'High-Frequency Arbitrageur', color: 'text-rialo-cyan' };
+    if (finalScore >= 500) return { title: 'Degen Scalper', color: 'text-status-online-bright' };
+    return { title: 'Novice Scalper', color: 'text-rialo-subtext' };
   };
 
   const addFeedback = (text: string, type: 'perfect' | 'great' | 'good' | 'miss') => {
@@ -88,10 +107,26 @@ export const MarketReflexGame: React.FC = () => {
       text,
       type,
       x: targetX,
-      y: 120,
+      y: 110,
       opacity: 1
     };
     setFeedbacks(prev => [...prev.slice(-3), newFb]);
+  };
+
+  const spawnParticles = (x: number, y: number, color: string) => {
+    for (let i = 0; i < 18; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 60 + Math.random() * 140;
+      particlesRef.current.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        color,
+        size: 2 + Math.random() * 3,
+        alpha: 1
+      });
+    }
   };
 
   const endGame = useCallback(() => {
@@ -127,21 +162,22 @@ export const MarketReflexGame: React.FC = () => {
     setSuccessfulHits(0);
     setFeedbacks([]);
     candlesRef.current = [];
-    currentSpeed.current = 360;
+    particlesRef.current = [];
+    currentSpeed.current = 320;
+    lastPrice.current = 142.50;
     lastSpawnTime.current = performance.now();
     lastFrameTime.current = performance.now();
     setGameState('playing');
   };
 
-  // User Action Evaluation
+  // User input action
   const handleAction = useCallback((direction: 'up' | 'down') => {
     if (gameState !== 'playing') return;
 
     setTotalGuesses(prev => prev + 1);
 
-    // Find the closest unhit candle to the target line
     const candidates = candlesRef.current.filter(c => !c.hit && !c.missed);
-    let bestCandle: Candle | null = null;
+    let bestCandle: CandleData | null = null;
     let minDistance = Infinity;
 
     for (const c of candidates) {
@@ -153,12 +189,10 @@ export const MarketReflexGame: React.FC = () => {
     }
 
     if (!bestCandle) {
-      // Pressed too early or with no candle nearby
       triggerDamage();
       return;
     }
 
-    // Check if prediction matches candle type
     if (bestCandle.type === direction) {
       bestCandle.hit = true;
       playGameHitSound();
@@ -179,7 +213,10 @@ export const MarketReflexGame: React.FC = () => {
 
       setSuccessfulHits(prev => prev + 1);
 
-      // Streak & Multiplier
+      // Particle explosion at target location
+      spawnParticles(targetX, 190, direction === 'up' ? '#10B981' : '#EF4444');
+
+      // Streak & multiplier calculations
       setStreak(prev => {
         const nextStreak = prev + 1;
         setMaxStreak(ms => Math.max(ms, nextStreak));
@@ -204,27 +241,21 @@ export const MarketReflexGame: React.FC = () => {
           setHighScore(newScore);
           localStorage.setItem('rialo_reflex_highscore', newScore.toString());
         }
-        // Accelerate speed dynamically
-        currentSpeed.current = Math.min(750, 360 + Math.floor(newScore / 250) * 25);
+        currentSpeed.current = Math.min(720, 320 + Math.floor(newScore / 250) * 25);
         return newScore;
       });
 
       addFeedback(fbText, fbType);
     } else {
-      // Wrong direction pressed!
       bestCandle.missed = true;
       triggerDamage();
     }
   }, [gameState, multiplier, highScore, triggerDamage]);
 
-  // Keyboard Event Listeners
+  // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (gameState === 'idle' && (e.key === ' ' || e.key === 'Enter')) {
-        startGame();
-        return;
-      }
-      if (gameState === 'gameover' && (e.key === ' ' || e.key === 'Enter')) {
+      if ((gameState === 'idle' || gameState === 'gameover') && (e.key === ' ' || e.key === 'Enter')) {
         startGame();
         return;
       }
@@ -242,75 +273,265 @@ export const MarketReflexGame: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [gameState, handleAction]);
 
-  // Main 60 FPS Game Loop
+  // Main Canvas & Game Loop
   useEffect(() => {
-    if (gameState !== 'playing') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    const loop = (time: number) => {
-      const dt = (time - lastFrameTime.current) / 1000;
+    let localAnimId: number;
+
+    const resizeCanvas = () => {
+      if (!containerRef.current || !canvas) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = 360 * dpr;
+      ctx.scale(dpr, dpr);
+    };
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    const render = (time: number) => {
+      const dt = Math.min(0.1, (time - (lastFrameTime.current || time)) / 1000);
       lastFrameTime.current = time;
 
-      const containerWidth = containerRef.current?.clientWidth || 800;
+      const width = canvas.width / (window.devicePixelRatio || 1);
+      const height = 360;
 
-      // 1. Spawn New Candlesticks at dynamic intervals
-      const spawnIntervalMs = Math.max(380, 1100 - (currentSpeed.current - 360) * 1.4);
-      if (time - lastSpawnTime.current > spawnIntervalMs) {
-        lastSpawnTime.current = time;
-        const type: 'up' | 'down' = Math.random() > 0.5 ? 'up' : 'down';
-        const height = 40 + Math.floor(Math.random() * 50);
-        const wickHeight = height + 25 + Math.floor(Math.random() * 20);
+      // 1. Clear background
+      ctx.fillStyle = '#0A0A09';
+      ctx.fillRect(0, 0, width, height);
 
-        candlesRef.current.push({
-          id: nextCandleId.current++,
-          type,
-          x: containerWidth + 40,
-          height,
-          wickHeight,
-          hit: false,
-          missed: false
-        });
-      }
+      // 2. Draw Financial Grid
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.lineWidth = 1;
 
-      // 2. Move Candlesticks Leftwards
-      const deltaX = currentSpeed.current * dt;
-      candlesRef.current.forEach(c => {
-        c.x -= deltaX;
+      // Horizontal price lines
+      const gridLevels = [60, 120, 180, 240, 300];
+      gridLevels.forEach((y, i) => {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width - 65, y);
+        ctx.stroke();
 
-        // If candle crosses target line without hit, count as missed life loss
-        if (!c.hit && !c.missed && c.x < targetX - hitTolerance) {
-          c.missed = true;
-          triggerDamage();
-        }
+        // Right side price axis labels
+        ctx.fillStyle = 'rgba(163, 158, 147, 0.5)';
+        ctx.font = '10px JetBrains Mono, monospace';
+        ctx.textAlign = 'right';
+        const priceLabel = (145.0 - i * 1.25).toFixed(2);
+        ctx.fillText(`$${priceLabel}`, width - 10, y + 3);
       });
 
-      // 3. Remove out-of-screen candles
-      candlesRef.current = candlesRef.current.filter(c => c.x > -60);
+      // Price Axis divider
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.beginPath();
+      ctx.moveTo(width - 65, 0);
+      ctx.lineTo(width - 65, height);
+      ctx.stroke();
 
-      // 4. Update floating feedback opacity
-      setFeedbacks(prev =>
-        prev
-          .map(fb => ({ ...fb, y: fb.y - 1.5, opacity: fb.opacity - 0.03 }))
-          .filter(fb => fb.opacity > 0)
-      );
+      // Vertical time grid lines
+      for (let gx = 0; gx < width - 65; gx += 80) {
+        ctx.beginPath();
+        ctx.moveTo(gx, 0);
+        ctx.lineTo(gx, height);
+        ctx.stroke();
+      }
 
-      animFrameId.current = requestAnimationFrame(loop);
+      // 3. Spawning & Moving Candlesticks when playing
+      if (gameState === 'playing') {
+        const spawnIntervalMs = Math.max(360, 1000 - (currentSpeed.current - 320) * 1.3);
+        if (time - lastSpawnTime.current > spawnIntervalMs) {
+          lastSpawnTime.current = time;
+
+          const type: 'up' | 'down' = Math.random() > 0.48 ? 'up' : 'down';
+          const priceDelta = (0.3 + Math.random() * 0.8) * (type === 'up' ? 1 : -1);
+          const newPrice = Math.max(138, Math.min(148, lastPrice.current + priceDelta));
+          const openPrice = lastPrice.current;
+          const closePrice = newPrice;
+          const highPrice = Math.max(openPrice, closePrice) + Math.random() * 0.4;
+          const lowPrice = Math.min(openPrice, closePrice) - Math.random() * 0.4;
+          lastPrice.current = newPrice;
+          setCurrentLivePrice(newPrice);
+
+          candlesRef.current.push({
+            id: nextCandleId.current++,
+            type,
+            x: width - 70,
+            openPrice,
+            closePrice,
+            highPrice,
+            lowPrice,
+            volume: 15 + Math.random() * 45,
+            hit: false,
+            missed: false
+          });
+        }
+
+        // Move Candlesticks
+        const deltaX = currentSpeed.current * dt;
+        candlesRef.current.forEach(c => {
+          c.x -= deltaX;
+
+          if (!c.hit && !c.missed && c.x < targetX - hitTolerance) {
+            c.missed = true;
+            triggerDamage();
+          }
+        });
+
+        // Filter out-of-bounds candles
+        candlesRef.current = candlesRef.current.filter(c => c.x > -40);
+      }
+
+      // 4. Render Target Strike Zone Laser
+      ctx.save();
+      // Glowing laser background
+      const laserGrad = ctx.createLinearGradient(targetX - 25, 0, targetX + 25, 0);
+      laserGrad.addColorStop(0, 'rgba(200, 90, 39, 0)');
+      laserGrad.addColorStop(0.5, 'rgba(200, 90, 39, 0.18)');
+      laserGrad.addColorStop(1, 'rgba(200, 90, 39, 0)');
+      ctx.fillStyle = laserGrad;
+      ctx.fillRect(targetX - 25, 0, 50, height);
+
+      // Vertical Laser Line
+      ctx.strokeStyle = '#C85A27';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#C85A27';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(targetX, 0);
+      ctx.lineTo(targetX, height);
+      ctx.stroke();
+      ctx.restore();
+
+      // Laser Reticle Ring
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(targetX, 180, 18, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      // 5. Draw EMA Trend Line across candles
+      if (candlesRef.current.length > 1) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+
+        const priceToY = (p: number) => {
+          // Map price range 138-148 to y range 300-60
+          return 300 - ((p - 138) / 10) * 240;
+        };
+
+        candlesRef.current.forEach((c, idx) => {
+          const cy = priceToY(c.closePrice);
+          if (idx === 0) ctx.moveTo(c.x, cy);
+          else ctx.lineTo(c.x, cy);
+        });
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 6. Draw Candlesticks & Volume Bars
+      const priceToY = (p: number) => 300 - ((p - 138) / 10) * 240;
+
+      candlesRef.current.forEach(c => {
+        const isUp = c.type === 'up';
+        const color = isUp ? '#10B981' : '#EF4444';
+        const alpha = c.hit ? 0.2 : c.missed ? 0.3 : 1;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+
+        // Bottom Volume Histogram Bar
+        ctx.fillStyle = isUp ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)';
+        ctx.fillRect(c.x - 7, height - c.volume, 14, c.volume);
+
+        // Candle Wick
+        const highY = priceToY(c.highPrice);
+        const lowY = priceToY(c.lowPrice);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(c.x, highY);
+        ctx.lineTo(c.x, lowY);
+        ctx.stroke();
+
+        // Candle Body
+        const openY = priceToY(c.openPrice);
+        const closeY = priceToY(c.closePrice);
+        const bodyTop = Math.min(openY, closeY);
+        const bodyHeight = Math.max(4, Math.abs(closeY - openY));
+
+        ctx.fillStyle = color;
+        ctx.fillRect(c.x - 7, bodyTop, 14, bodyHeight);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(c.x - 7, bodyTop, 14, bodyHeight);
+
+        ctx.restore();
+      });
+
+      // 7. Render Particles
+      particlesRef.current.forEach(p => {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.alpha -= dt * 1.8;
+
+        if (p.alpha > 0) {
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, p.alpha);
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      });
+      particlesRef.current = particlesRef.current.filter(p => p.alpha > 0);
+
+      // 8. Live Current Price Marker on right axis
+      const curY = priceToY(currentLivePrice);
+      ctx.save();
+      ctx.fillStyle = '#C85A27';
+      ctx.fillRect(width - 65, curY - 9, 65, 18);
+      ctx.fillStyle = '#0A0A09';
+      ctx.font = 'bold 10px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`$${currentLivePrice.toFixed(2)}`, width - 32, curY + 4);
+      ctx.restore();
+
+      localAnimId = requestAnimationFrame(render);
     };
 
-    lastFrameTime.current = performance.now();
-    animFrameId.current = requestAnimationFrame(loop);
+    localAnimId = requestAnimationFrame(render);
 
     return () => {
-      if (animFrameId.current) {
-        cancelAnimationFrame(animFrameId.current);
-      }
+      cancelAnimationFrame(localAnimId);
+      window.removeEventListener('resize', resizeCanvas);
     };
-  }, [gameState, triggerDamage]);
+  }, [gameState, currentLivePrice, triggerDamage]);
 
-  // Twitter Share Intent
+  // Floating feedbacks decay
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFeedbacks(prev =>
+        prev
+          .map(fb => ({ ...fb, y: fb.y - 2, opacity: fb.opacity - 0.04 }))
+          .filter(fb => fb.opacity > 0)
+      );
+    }, 30);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleShareTwitter = () => {
     playClickSound();
     const rank = getRank(score);
-    const text = `I just scored ${score.toLocaleString()} XP in Rialo Market Reflex! ⚡\nRank: ${rank.title}\nMax Streak: ${maxStreak}x 🔥\n\nCan your reflexes beat Rialo's 50ms sub-second block finality? 🌐\n\nPlay live at: https://github.com/promanas0/RialoPulse`;
+    const text = `I just scored ${score.toLocaleString()} XP in Rialo Market Reflex! [Rank: ${rank.title} | Max Streak: ${maxStreak}x]\n\nTesting neural reflex against Rialo 50ms sub-second block finality.\n\nPlay live: https://github.com/promanas0/RialoPulse`;
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -332,15 +553,15 @@ export const MarketReflexGame: React.FC = () => {
         <div>
           <div className="flex items-center space-x-2">
             <h1 className="font-display text-2xl font-bold text-rialo-text tracking-tight flex items-center space-x-2">
+              <Crosshair className="w-6 h-6 text-rialo-accent" />
               <span>Market Reflex Arcade</span>
-              <span className="w-2 h-2 rounded-full bg-status-online-bright animate-subtle-pulse"></span>
             </h1>
             <span className="text-[10px] font-mono uppercase tracking-wider bg-rialo-accent/10 text-rialo-accent border border-rialo-accent/30 px-2 py-0.5 font-bold">
-              50ms Reflex Challenge
+              50ms Block Conveyor
             </span>
           </div>
           <p className="text-xs text-rialo-subtext mt-1">
-            Test your microsecond market instincts against Rialo's 50ms sub-second consensus conveyor.
+            Real-time candlestick trading reflex challenge. Time your executions with Rialo sub-second block finality.
           </p>
         </div>
 
@@ -356,40 +577,40 @@ export const MarketReflexGame: React.FC = () => {
       {/* Main Game Arena Container */}
       <div
         ref={containerRef}
-        className="relative w-full h-[400px] sm:h-[440px] bg-[#0C0C0B] border-2 border-rialo-border overflow-hidden select-none shadow-2xl flex flex-col justify-between"
+        className="relative w-full bg-[#0A0A09] border border-rialo-border overflow-hidden select-none shadow-2xl flex flex-col justify-between"
       >
         {/* Top HUD Overlay */}
-        <div className="p-4 flex items-center justify-between z-20 font-mono text-xs bg-gradient-to-b from-[#0C0C0B] to-transparent">
+        <div className="p-3 sm:p-4 flex items-center justify-between z-20 font-mono text-xs border-b border-rialo-border/60 bg-[#0C0C0B]/90 backdrop-blur-md">
           {/* Score & Multiplier */}
           <div className="flex items-center space-x-3">
-            <div className="bg-rialo-surface/90 border border-rialo-border px-3 py-1.5 backdrop-blur-md">
-              <span className="text-[10px] text-rialo-muted uppercase block">Current XP</span>
-              <span className="font-bold text-xl text-rialo-text">{score.toLocaleString()}</span>
+            <div className="bg-rialo-surface border border-rialo-border px-3 py-1.5">
+              <span className="text-[10px] text-rialo-muted uppercase block">Score XP</span>
+              <span className="font-bold text-lg sm:text-xl text-rialo-text">{score.toLocaleString()}</span>
             </div>
 
             {multiplier > 1 && (
-              <div className="bg-rialo-accent/20 border border-rialo-accent px-3 py-1.5 flex items-center space-x-1.5 animate-bounce">
+              <div className="bg-rialo-accent/15 border border-rialo-accent px-3 py-1.5 flex items-center space-x-1.5 animate-pulse">
                 <Flame className="w-4 h-4 text-rialo-accent" />
-                <span className="font-bold text-base text-rialo-accent">{multiplier}x MULTIPLIER</span>
+                <span className="font-bold text-xs sm:text-sm text-rialo-accent">{multiplier}X MULTIPLIER</span>
               </div>
             )}
           </div>
 
-          {/* Streak & Lives */}
-          <div className="flex items-center space-x-4">
-            <div className="bg-rialo-surface/90 border border-rialo-border px-3 py-1.5 backdrop-blur-md hidden sm:block">
+          {/* Streak, Price & Lives */}
+          <div className="flex items-center space-x-3">
+            <div className="bg-rialo-surface border border-rialo-border px-3 py-1.5 hidden sm:block">
               <span className="text-[10px] text-rialo-muted uppercase block">Streak</span>
-              <span className="font-bold text-rialo-cyan text-base">{streak}x</span>
+              <span className="font-bold text-rialo-cyan text-sm">{streak} in-a-row</span>
             </div>
 
-            {/* 3 Hearts */}
-            <div className="flex items-center space-x-1 bg-rialo-surface/90 border border-rialo-border px-3 py-2 backdrop-blur-md">
+            {/* 3 Hearts Indicator */}
+            <div className="flex items-center space-x-1.5 bg-rialo-surface border border-rialo-border px-3 py-2">
               {[1, 2, 3].map((h) => (
                 <Heart
                   key={h}
-                  className={`w-5 h-5 transition-all ${
+                  className={`w-4 h-4 transition-all ${
                     h <= lives
-                      ? 'text-[#FF4D4D] fill-[#FF4D4D] scale-100'
+                      ? 'text-status-offline fill-status-offline scale-100'
                       : 'text-rialo-border/40 scale-90'
                   }`}
                 />
@@ -398,72 +619,9 @@ export const MarketReflexGame: React.FC = () => {
           </div>
         </div>
 
-        {/* Center Conveyor Stream Visual */}
-        <div className="relative flex-1 w-full overflow-hidden flex items-center">
-          {/* Horizontal Center Price Grid Lines */}
-          <div className="absolute inset-0 flex flex-col justify-between py-12 pointer-events-none opacity-20">
-            <div className="border-b border-dashed border-rialo-muted w-full"></div>
-            <div className="border-b border-rialo-muted w-full"></div>
-            <div className="border-b border-dashed border-rialo-muted w-full"></div>
-          </div>
-
-          {/* Target Strike Zone Laser Line */}
-          <div
-            className="absolute top-0 bottom-0 z-10 pointer-events-none flex flex-col items-center justify-between"
-            style={{ left: `${targetX}px` }}
-          >
-            <div className="px-2 py-0.5 bg-rialo-accent text-[9px] font-mono font-bold text-black uppercase tracking-widest shadow-lg -translate-x-1/2">
-              STRIKE ZONE
-            </div>
-
-            <div className="w-[3px] flex-1 bg-gradient-to-b from-rialo-accent via-rialo-cyan to-rialo-accent shadow-[0_0_15px_#C85A27] animate-pulse"></div>
-
-            <div className="w-3 h-3 rounded-full bg-rialo-accent shadow-[0_0_12px_#C85A27] mb-2 -translate-x-1/2"></div>
-          </div>
-
-          {/* Candlesticks Rendered in Real-Time */}
-          {candlesRef.current.map((c) => {
-            const isUp = c.type === 'up';
-            const colorClass = isUp ? 'bg-status-online-bright border-[#10B981]' : 'bg-[#EF4444] border-[#DC2626]';
-            const wickColor = isUp ? '#10B981' : '#EF4444';
-
-            return (
-              <div
-                key={c.id}
-                className="absolute flex flex-col items-center justify-center pointer-events-none transition-transform"
-                style={{
-                  left: `${c.x}px`,
-                  top: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  opacity: c.hit ? 0.2 : c.missed ? 0.3 : 1
-                }}
-              >
-                {/* Upper Wick */}
-                <div
-                  className="w-[2px]"
-                  style={{ height: `${c.wickHeight / 2}px`, backgroundColor: wickColor }}
-                />
-
-                {/* Candle Body */}
-                <div
-                  className={`w-7 sm:w-8 border-2 shadow-lg flex items-center justify-center ${colorClass}`}
-                  style={{ height: `${c.height}px` }}
-                >
-                  {isUp ? (
-                    <TrendingUp className="w-3.5 h-3.5 text-black font-bold" />
-                  ) : (
-                    <TrendingDown className="w-3.5 h-3.5 text-white font-bold" />
-                  )}
-                </div>
-
-                {/* Lower Wick */}
-                <div
-                  className="w-[2px]"
-                  style={{ height: `${c.wickHeight / 2}px`, backgroundColor: wickColor }}
-                />
-              </div>
-            );
-          })}
+        {/* HTML5 Candlestick Chart Canvas */}
+        <div className="relative w-full h-[360px] bg-[#0A0A09]">
+          <canvas ref={canvasRef} className="w-full h-full block" />
 
           {/* Floating Feedback Badges */}
           {feedbacks.map((fb) => (
@@ -489,45 +647,46 @@ export const MarketReflexGame: React.FC = () => {
             </div>
           ))}
 
-          {/* Idle / Welcome Screen */}
+          {/* Welcome Screen Overlay */}
           {gameState === 'idle' && (
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center z-30 space-y-4">
-              <div className="w-14 h-14 rounded-none bg-rialo-accent/10 border-2 border-rialo-accent flex items-center justify-center">
-                <Activity className="w-8 h-8 text-rialo-accent" />
+            <div className="absolute inset-0 bg-black/85 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center z-30 space-y-4">
+              <div className="w-12 h-12 bg-rialo-accent/10 border border-rialo-accent flex items-center justify-center">
+                <Activity className="w-6 h-6 text-rialo-accent" />
               </div>
 
               <div>
-                <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-rialo-text">
-                  Market Reflex Arcade
+                <h2 className="font-display text-2xl font-bold text-rialo-text">
+                  Market Reflex Trading Arena
                 </h2>
-                <p className="text-xs text-rialo-subtext font-mono max-w-md mt-1">
-                  Candlesticks will stream into the strike zone. Match green with UP and red with DOWN before they cross the line!
+                <p className="text-xs text-rialo-subtext font-mono max-w-md mt-1 leading-relaxed">
+                  Candlesticks will stream into the strike zone. Execute PUMP (UP) on green candles and DUMP (DOWN) on red candles as they cross the laser line!
                 </p>
               </div>
 
               <div className="flex items-center space-x-3 text-xs font-mono text-rialo-muted bg-rialo-surface px-4 py-2 border border-rialo-border">
-                <span>[▲] or [W] = Bullish PUMP</span>
+                <span>[W / UP] = Bullish Pump</span>
                 <span>•</span>
-                <span>[▼] or [S] = Bearish DUMP</span>
+                <span>[S / DOWN] = Bearish Dump</span>
               </div>
 
               <button
                 onClick={startGame}
-                className="bg-rialo-accent text-white hover:bg-rialo-accent-hover px-8 py-3.5 text-xs font-mono font-bold uppercase tracking-widest transition-all shadow-xl hover:shadow-rialo-accent/30 flex items-center space-x-2 group cursor-pointer"
+                className="bg-rialo-accent text-white hover:bg-rialo-accent-hover px-8 py-3.5 text-xs font-mono font-bold uppercase tracking-widest transition-all shadow-xl hover:shadow-rialo-accent/30 flex items-center space-x-2 cursor-pointer"
               >
-                <Play className="w-4 h-4 fill-white group-hover:scale-110 transition-transform" />
+                <Play className="w-4 h-4 fill-white" />
                 <span>START CHALLENGE</span>
               </button>
             </div>
           )}
 
-          {/* Game Over Screen */}
+          {/* Game Over Screen Overlay */}
           {gameState === 'gameover' && (
             <div className="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-30 space-y-5 animate-in fade-in zoom-in-95 duration-200">
               <div>
-                <span className="text-[10px] font-mono uppercase tracking-widest text-status-offline font-bold">
-                  GAME OVER
-                </span>
+                <div className="flex items-center justify-center space-x-1.5 text-status-offline text-xs font-mono font-bold uppercase tracking-widest">
+                  <ShieldAlert className="w-4 h-4" />
+                  <span>EXECUTION TERMINATED</span>
+                </div>
                 <h2 className="font-display text-3xl font-extrabold text-rialo-text mt-1">
                   {score.toLocaleString()} XP
                 </h2>
@@ -539,15 +698,15 @@ export const MarketReflexGame: React.FC = () => {
               {/* Stats Summary Matrix */}
               <div className="grid grid-cols-3 gap-3 w-full max-w-sm font-mono text-xs">
                 <div className="bg-rialo-surface p-2.5 border border-rialo-border">
-                  <span className="text-[10px] text-rialo-muted block">Max Streak</span>
+                  <span className="text-[10px] text-rialo-muted block uppercase">Max Streak</span>
                   <span className="font-bold text-rialo-cyan text-sm">{maxStreak}x</span>
                 </div>
                 <div className="bg-rialo-surface p-2.5 border border-rialo-border">
-                  <span className="text-[10px] text-rialo-muted block">Accuracy</span>
+                  <span className="text-[10px] text-rialo-muted block uppercase">Accuracy</span>
                   <span className="font-bold text-status-online-bright text-sm">{accuracy}%</span>
                 </div>
                 <div className="bg-rialo-surface p-2.5 border border-rialo-border">
-                  <span className="text-[10px] text-rialo-muted block">Hits</span>
+                  <span className="text-[10px] text-rialo-muted block uppercase">Hits</span>
                   <span className="font-bold text-rialo-text text-sm">{successfulHits}</span>
                 </div>
               </div>
@@ -556,7 +715,7 @@ export const MarketReflexGame: React.FC = () => {
               <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
                 <button
                   onClick={startGame}
-                  className="bg-rialo-text text-rialo-bg hover:bg-white px-5 py-2.5 text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center space-x-2 shadow-lg"
+                  className="bg-rialo-text text-rialo-bg hover:bg-white px-5 py-2.5 text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center space-x-2 shadow-lg cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-rialo-accent" />
                   <span>Play Again</span>
@@ -564,7 +723,7 @@ export const MarketReflexGame: React.FC = () => {
 
                 <button
                   onClick={handleShareTwitter}
-                  className="bg-[#1DA1F2]/20 hover:bg-[#1DA1F2]/30 border border-[#1DA1F2] text-[#1DA1F2] px-4 py-2.5 text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center space-x-2"
+                  className="bg-[#1DA1F2]/20 hover:bg-[#1DA1F2]/30 border border-[#1DA1F2] text-[#1DA1F2] px-4 py-2.5 text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center space-x-2 cursor-pointer"
                 >
                   <Share2 className="w-3.5 h-3.5" />
                   <span>Share on X</span>
@@ -574,7 +733,7 @@ export const MarketReflexGame: React.FC = () => {
                   <button
                     onClick={handleClaimFaucet}
                     disabled={isClaimingFaucet}
-                    className="bg-rialo-surface hover:bg-rialo-card border border-rialo-border text-rialo-text px-4 py-2.5 text-xs font-mono font-semibold uppercase tracking-wider transition-colors flex items-center space-x-2 disabled:opacity-50"
+                    className="bg-rialo-surface hover:bg-rialo-card border border-rialo-border text-rialo-text px-4 py-2.5 text-xs font-mono font-semibold uppercase tracking-wider transition-colors flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
                   >
                     <Droplets className="w-3.5 h-3.5 text-rialo-accent" />
                     <span>{isClaimingFaucet ? 'Claiming...' : 'Claim 100 RIALO'}</span>
@@ -586,23 +745,23 @@ export const MarketReflexGame: React.FC = () => {
         </div>
 
         {/* Bottom Interactive Touch Controls Bar */}
-        <div className="p-3 bg-[#141412] border-t border-rialo-border grid grid-cols-2 gap-3 z-20">
+        <div className="p-3 bg-[#121210] border-t border-rialo-border grid grid-cols-2 gap-3 z-20">
           <button
             onClick={() => handleAction('up')}
             disabled={gameState !== 'playing'}
-            className="py-3 sm:py-4 bg-[#10B981]/15 hover:bg-[#10B981]/25 active:bg-[#10B981]/40 border-2 border-[#10B981] text-[#10B981] text-sm font-mono font-extrabold uppercase tracking-wider flex items-center justify-center space-x-2 transition-all disabled:opacity-40"
+            className="py-3 sm:py-4 bg-[#10B981]/15 hover:bg-[#10B981]/25 active:bg-[#10B981]/40 border border-[#10B981] text-[#10B981] text-xs sm:text-sm font-mono font-extrabold uppercase tracking-wider flex items-center justify-center space-x-2 transition-all disabled:opacity-40 cursor-pointer"
           >
-            <TrendingUp className="w-5 h-5 text-status-online-bright" />
-            <span>PUMP (UP ▲)</span>
+            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-status-online-bright" />
+            <span>PUMP (UP)</span>
           </button>
 
           <button
             onClick={() => handleAction('down')}
             disabled={gameState !== 'playing'}
-            className="py-3 sm:py-4 bg-[#EF4444]/15 hover:bg-[#EF4444]/25 active:bg-[#EF4444]/40 border-2 border-[#EF4444] text-[#EF4444] text-sm font-mono font-extrabold uppercase tracking-wider flex items-center justify-center space-x-2 transition-all disabled:opacity-40"
+            className="py-3 sm:py-4 bg-[#EF4444]/15 hover:bg-[#EF4444]/25 active:bg-[#EF4444]/40 border border-[#EF4444] text-[#EF4444] text-xs sm:text-sm font-mono font-extrabold uppercase tracking-wider flex items-center justify-center space-x-2 transition-all disabled:opacity-40 cursor-pointer"
           >
-            <TrendingDown className="w-5 h-5 text-[#EF4444]" />
-            <span>DUMP (DOWN ▼)</span>
+            <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-[#EF4444]" />
+            <span>DUMP (DOWN)</span>
           </button>
         </div>
       </div>
@@ -625,7 +784,7 @@ export const MarketReflexGame: React.FC = () => {
             <span>Combo Multipliers</span>
           </div>
           <p className="text-[11px] text-rialo-subtext mt-1.5 leading-relaxed font-sans">
-            Hit 5 in a row for 2x XP, 10 for 3x XP, and 20 for a 5x GODLIKE multiplier. One mistake resets your multiplier.
+            Hit 5 in a row for 2x XP, 10 for 3x XP, and 20 for a 5x multiplier. One mistake resets your multiplier.
           </p>
         </div>
 

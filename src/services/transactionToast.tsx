@@ -54,7 +54,7 @@ export const showTxSuccess = (
         <div className="font-bold text-sm text-[#1C1C1A] flex items-center justify-between">
           <span>{title}</span>
           <span className="text-[10px] uppercase tracking-wider bg-[#2E7D52]/10 text-[#2E7D52] px-1.5 py-0.5 font-semibold">
-            Confirmed ✅
+            Confirmed
           </span>
         </div>
         {description && <p className="text-[#5C584E] mt-1 text-[11px] leading-relaxed">{description}</p>}
@@ -86,7 +86,7 @@ export const showTxError = (title: string, error?: string | Error) => {
         <div className="font-bold text-sm text-[#C43D3D] flex items-center justify-between">
           <span>{title}</span>
           <span className="text-[10px] uppercase tracking-wider bg-[#C43D3D]/10 text-[#C43D3D] px-1.5 py-0.5 font-semibold">
-            Failed ❌
+            Failed
           </span>
         </div>
         <p className="text-[#5C584E] mt-1 text-[11px] leading-relaxed break-words">{errorMsg}</p>
