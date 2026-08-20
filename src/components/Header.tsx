@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import type { NetworkType } from '../types';
 import { useWallet } from '../context/WalletContext';
-import { Activity, Cpu, Globe, Terminal, Wrench, Droplets, Wallet, AlertTriangle } from 'lucide-react';
+import { playClickSound, toggleSound, isSoundEnabled } from '../services/soundService';
+import { Activity, Cpu, Globe, Terminal, Wrench, Droplets, Wallet, AlertTriangle, Volume2, VolumeX, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: string;
@@ -20,14 +21,27 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { walletState, openConnectModal, openAccountModal, triggerFaucetDrip } = useWallet();
   const [isDrippingFaucet, setIsDrippingFaucet] = useState(false);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
+
+  const handleSoundToggle = () => {
+    const newState = toggleSound();
+    setSoundOn(newState);
+  };
 
   const handleHeaderFaucetClick = async () => {
+    playClickSound();
     setIsDrippingFaucet(true);
     await triggerFaucetDrip();
     setIsDrippingFaucet(false);
   };
 
+  const handleTabClick = (tabId: string) => {
+    playClickSound();
+    setActiveTab(tabId);
+  };
+
   const navItems = [
+    { id: 'overview', label: 'Overview', icon: Sparkles },
     { id: 'telemetry', label: 'Core Telemetry', icon: Activity },
     { id: 'peers', label: 'Nodes & Peers', icon: Globe },
     { id: 'sandbox', label: 'Contract Sandbox', icon: Terminal },
@@ -35,46 +49,54 @@ export const Header: React.FC<HeaderProps> = ({
   ];
 
   return (
-    <header className="border-b border-rialo-border bg-rialo-bg sticky top-0 z-40">
+    <header className="border-b border-rialo-border bg-rialo-bg/90 backdrop-blur-md sticky top-0 z-40">
       {/* Top Status Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
         {/* Brand Logo */}
-        <div className="flex items-center space-x-3">
+        <div
+          onClick={() => handleTabClick('overview')}
+          className="flex items-center space-x-3 cursor-pointer group"
+        >
           <div className="flex items-center space-x-2">
-            <span className="font-display text-2xl font-bold tracking-tight text-rialo-text">
+            <span className="font-display text-2xl font-bold tracking-tight text-rialo-text group-hover:text-white transition-colors">
               Rialo
             </span>
-            <span className="w-2.5 h-2.5 rounded-full bg-rialo-accent inline-block"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-rialo-accent inline-block animate-subtle-pulse"></span>
             <span className="font-display text-xl font-medium tracking-wide text-rialo-subtext">
               Pulse
             </span>
           </div>
-          <span className="hidden sm:inline-block text-xs uppercase tracking-widest text-rialo-muted px-2 py-0.5 border border-rialo-border font-mono">
-            Network Telemetry
+          <span className="hidden sm:inline-block text-[10px] uppercase tracking-widest text-rialo-muted px-2 py-0.5 border border-rialo-border font-mono bg-rialo-surface/50">
+            v1.0 Testnet
           </span>
         </div>
 
         {/* Live Network & Block Height Indicator & Wallet Controls */}
-        <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm font-mono">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm font-mono">
           {/* Network Switcher Tabs */}
-          <div className="flex items-center space-x-2">
-            <span className="text-xs uppercase tracking-wider text-rialo-muted font-sans hidden sm:inline">Network</span>
+          <div className="flex items-center space-x-1.5">
             <div className="flex border border-rialo-border bg-rialo-surface p-0.5 text-xs">
               <button
-                onClick={() => setSelectedNetwork('Testnet')}
+                onClick={() => {
+                  playClickSound();
+                  setSelectedNetwork('Testnet');
+                }}
                 className={`px-2.5 py-1 font-medium transition-colors ${
                   selectedNetwork === 'Testnet'
-                    ? 'bg-rialo-card text-rialo-text shadow-sm border border-rialo-border'
+                    ? 'bg-rialo-card text-rialo-text shadow-sm border border-rialo-border font-bold'
                     : 'text-rialo-subtext hover:text-rialo-text'
                 }`}
               >
                 Testnet
               </button>
               <button
-                onClick={() => setSelectedNetwork('Devnet')}
+                onClick={() => {
+                  playClickSound();
+                  setSelectedNetwork('Devnet');
+                }}
                 className={`px-2.5 py-1 font-medium transition-colors ${
                   selectedNetwork === 'Devnet'
-                    ? 'bg-rialo-card text-rialo-text shadow-sm border border-rialo-border'
+                    ? 'bg-rialo-card text-rialo-text shadow-sm border border-rialo-border font-bold'
                     : 'text-rialo-subtext hover:text-rialo-text'
                 }`}
               >
@@ -84,25 +106,28 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Block Height Pill */}
-          <div className="hidden md:flex items-center space-x-2">
-            <Cpu className="w-4 h-4 text-rialo-subtext" />
-            <span className="text-xs uppercase tracking-wider text-rialo-muted font-sans">Block</span>
+          <div className="hidden md:flex items-center space-x-1.5 px-2.5 py-1 bg-rialo-surface border border-rialo-border text-xs">
+            <Cpu className="w-3.5 h-3.5 text-rialo-subtext" />
+            <span className="text-rialo-muted font-sans text-[11px]">Block</span>
             <span className="font-semibold text-rialo-text">
               #{currentBlockHeight.toLocaleString()}
             </span>
           </div>
 
-          {/* 50ms Target */}
-          <div className="hidden xl:flex items-center space-x-2 text-xs">
-            <span className="w-2 h-2 rounded-full bg-status-online animate-subtle-pulse"></span>
-            <span className="text-rialo-subtext font-sans uppercase tracking-wider">50ms Block Target</span>
-          </div>
+          {/* Sound Toggle Button (Pro Dev Polish) */}
+          <button
+            onClick={handleSoundToggle}
+            className="p-1.5 bg-rialo-surface hover:bg-rialo-card border border-rialo-border text-rialo-subtext hover:text-rialo-text transition-colors"
+            title={soundOn ? 'Sound FX On (Click to Mute)' : 'Sound FX Muted (Click to Unmute)'}
+          >
+            {soundOn ? <Volume2 className="w-4 h-4 text-rialo-accent" /> : <VolumeX className="w-4 h-4" />}
+          </button>
 
-          {/* Quick Faucet Mint Button (Testing Ease) */}
+          {/* Quick Faucet Mint Button */}
           <button
             onClick={handleHeaderFaucetClick}
             disabled={isDrippingFaucet}
-            className="flex items-center space-x-1.5 bg-rialo-surface hover:bg-rialo-sand border border-rialo-border text-rialo-text px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-colors disabled:opacity-50"
+            className="flex items-center space-x-1.5 bg-rialo-surface hover:bg-rialo-card border border-rialo-border text-rialo-text px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-colors disabled:opacity-50"
             title="Instant 100 RIALO Testnet Faucet Drip"
           >
             <Droplets className={`w-3.5 h-3.5 text-rialo-accent ${isDrippingFaucet ? 'animate-bounce' : ''}`} />
@@ -113,11 +138,14 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Connect / Account Button */}
           {walletState.isConnected && walletState.address ? (
             <button
-              onClick={openAccountModal}
+              onClick={() => {
+                playClickSound();
+                openAccountModal();
+              }}
               className={`flex items-center space-x-2 px-3 py-1.5 text-xs font-medium tracking-wide uppercase transition-all border ${
                 walletState.isWrongNetwork
                   ? 'bg-status-offline/10 border-status-offline text-status-offline hover:bg-status-offline/20'
-                  : 'bg-rialo-card border-rialo-text text-rialo-text hover:bg-rialo-surface shadow-xs'
+                  : 'bg-rialo-surface hover:bg-rialo-card border-rialo-border text-rialo-text shadow-sm'
               }`}
             >
               {walletState.isWrongNetwork ? (
@@ -127,7 +155,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </>
               ) : (
                 <>
-                  <span className="w-2 h-2 rounded-full bg-status-online shrink-0"></span>
+                  <span className="w-2 h-2 rounded-full bg-status-online-bright shrink-0"></span>
                   <span className="font-bold">
                     {walletState.address.substring(0, 6)}...{walletState.address.substring(walletState.address.length - 4)}
                   </span>
@@ -140,8 +168,11 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           ) : (
             <button
-              onClick={openConnectModal}
-              className="flex items-center space-x-2 bg-rialo-text text-rialo-bg hover:bg-rialo-dark px-3.5 py-1.5 text-xs font-medium tracking-wide uppercase transition-colors border border-rialo-text shadow-sm"
+              onClick={() => {
+                playClickSound();
+                openConnectModal();
+              }}
+              className="flex items-center space-x-2 bg-rialo-text text-rialo-bg hover:bg-white px-3.5 py-1.5 text-xs font-medium tracking-wide uppercase transition-colors border border-rialo-text shadow-sm font-mono font-bold"
             >
               <Wallet className="w-3.5 h-3.5 text-rialo-accent" />
               <span>Connect Wallet</span>
@@ -159,11 +190,11 @@ export const Header: React.FC<HeaderProps> = ({
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => handleTabClick(item.id)}
                 className={`flex items-center space-x-2 px-3.5 py-2 text-xs sm:text-sm uppercase tracking-widest font-medium transition-all whitespace-nowrap ${
                   isActive
-                    ? 'border-b-2 border-rialo-text text-rialo-text font-semibold bg-rialo-surface/60'
-                    : 'text-rialo-subtext hover:text-rialo-text hover:bg-rialo-surface/30'
+                    ? 'border-b-2 border-rialo-accent text-rialo-text font-bold bg-rialo-surface/80 shadow-xs'
+                    : 'text-rialo-subtext hover:text-rialo-text hover:bg-rialo-surface/40'
                 }`}
               >
                 <Icon className={`w-4 h-4 ${isActive ? 'text-rialo-accent' : 'text-rialo-muted'}`} />

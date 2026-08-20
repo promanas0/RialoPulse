@@ -4,36 +4,102 @@
 
 @layer base {
   body {
-    background-color: #EAE5D9;
-    color: #1C1C1A;
+    background-color: #0A0A09;
+    color: #F5F2EB;
+    overflow-x: hidden;
+    selection-background-color: #C85A27;
+    selection-color: #0A0A09;
   }
 }
 
-/* Custom minimal scrollbar */
+/* 3% Matte Noise Texture Overlay */
+.noise-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  content: "";
+  opacity: 0.035;
+  pointer-events: none;
+  z-index: 999;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* Top Spotlight Radial Lighting */
+.spotlight-glow {
+  background: radial-gradient(circle at 50% 0%, rgba(200, 90, 39, 0.18), rgba(0, 229, 255, 0.04) 40%, transparent 70%);
+}
+
+.spotlight-glow-secondary {
+  background: radial-gradient(circle at 80% 20%, rgba(0, 229, 255, 0.08), transparent 50%);
+}
+
+/* Shimmering Badge Gradient */
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    rgba(245, 242, 235, 0.7) 0%,
+    rgba(255, 255, 255, 1) 50%,
+    rgba(245, 242, 235, 0.7) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 3s infinite linear;
+}
+
+/* Animated Border Beam */
+.border-beam-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.border-beam-container::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(
+    transparent,
+    rgba(200, 90, 39, 0.4),
+    rgba(0, 229, 255, 0.4),
+    transparent 30%
+  );
+  animation: spin 6s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Custom Minimal Cyberpunk Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #EAE5D9;
+  background: #0A0A09;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #C9C0AA;
-  border-radius: 3px;
+  background: #282824;
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #B3A992;
+  background: #C85A27;
 }
 
-/* Minimal Pulse Animation without badges or emojis */
-@keyframes subtle-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(0.96); }
-}
-
-.animate-subtle-pulse {
-  animation: subtle-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+/* Monospace Terminal Scanline Effect */
+.scanline {
+  background: linear-gradient(
+    to bottom,
+    rgba(255,255,255,0),
+    rgba(255,255,255,0) 50%,
+    rgba(0, 0, 0, 0.3) 50%,
+    rgba(0, 0, 0, 0.3)
+  );
+  background-size: 100% 4px;
 }
