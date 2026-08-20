@@ -1,14 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
-import type { NetworkType, RpcEndpoint, NetworkMetrics, TpsDataPoint, PeerNode, ContractEvent, WalletState } from './types';
+import type { NetworkType, RpcEndpoint, NetworkMetrics, TpsDataPoint, PeerNode, ContractEvent } from './types';
 import { INITIAL_RPC_ENDPOINTS, INITIAL_PEERS, INITIAL_EVENTS, RPC_PRESETS, INITIAL_FAUCET_STATUS } from './services/mockDataService';
 import { TelemetryEngine } from './services/telemetryService';
+import { WalletProvider, useWallet } from './context/WalletContext';
 import { Header } from './components/Header';
 import { TelemetryMetrics } from './components/TelemetryMetrics';
 import { PeerVisualizer } from './components/PeerVisualizer';
 import { ContractSandbox } from './components/ContractSandbox';
 import { DevToolkit } from './components/DevToolkit';
+import { WalletConnectModal } from './components/WalletConnectModal';
+import { AccountModal } from './components/AccountModal';
+import { WrongNetworkBanner } from './components/WrongNetworkBanner';
+import { Toaster } from 'sonner';
 
-export function App() {
+function DashboardContent() {
   const [activeTab, setActiveTab] = useState<string>('telemetry');
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkType>('Testnet');
 
@@ -16,13 +21,8 @@ export function App() {
   const [rpcEndpoints, setRpcEndpoints] = useState<RpcEndpoint[]>(INITIAL_RPC_ENDPOINTS);
   const [peers, setPeers] = useState<PeerNode[]>(INITIAL_PEERS);
   const [events, setEvents] = useState<ContractEvent[]>(INITIAL_EVENTS);
-  
-  const [walletState, setWalletState] = useState<WalletState>({
-    address: null,
-    isConnected: false,
-    balanceRialo: '250.00',
-    networkId: null
-  });
+
+  const { setOnAddEvent } = useWallet();
 
   const [metrics, setMetrics] = useState<NetworkMetrics>({
     currentBlockHeight: 18492042,
@@ -46,6 +46,15 @@ export function App() {
   ]);
 
   const engineRef = useRef<TelemetryEngine | null>(null);
+
+  const handleAddContractEvent = (newEvent: ContractEvent) => {
+    setEvents(prev => [newEvent, ...prev.slice(0, 24)]);
+  };
+
+  // Wire up WalletContext event callback to live streamer
+  useEffect(() => {
+    setOnAddEvent(handleAddContractEvent);
+  }, [setOnAddEvent]);
 
   // Initialize Telemetry Engine
   useEffect(() => {
@@ -79,16 +88,15 @@ export function App() {
     }
   };
 
-  const handleAddContractEvent = (newEvent: ContractEvent) => {
-    setEvents(prev => [newEvent, ...prev.slice(0, 19)]);
-  };
-
   const handleAddCustomPeer = (newPeer: PeerNode) => {
     setPeers(prev => [newPeer, ...prev]);
   };
 
   return (
     <div className="min-h-screen bg-rialo-bg text-rialo-text flex flex-col font-sans">
+      {/* Wrong Network Banner */}
+      <WrongNetworkBanner />
+
       {/* Header */}
       <Header
         activeTab={activeTab}
@@ -96,8 +104,6 @@ export function App() {
         selectedNetwork={selectedNetwork}
         setSelectedNetwork={setSelectedNetwork}
         currentBlockHeight={metrics.currentBlockHeight}
-        walletState={walletState}
-        setWalletState={setWalletState}
       />
 
       {/* Main Content Body */}
@@ -133,13 +139,22 @@ export function App() {
         {activeTab === 'toolkit' && (
           <DevToolkit
             faucetStatus={INITIAL_FAUCET_STATUS}
-            walletState={walletState}
-            setWalletState={setWalletState}
-            onAddEvent={handleAddContractEvent}
             currentBlockHeight={metrics.currentBlockHeight}
           />
         )}
       </main>
+
+      {/* Wallet Modals */}
+      <WalletConnectModal />
+      <AccountModal />
+
+      {/* Toast Notification Container */}
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          unstyled: true
+        }}
+      />
 
       {/* Clean Footer */}
       <footer className="border-t border-rialo-border bg-rialo-bg py-6 text-xs text-rialo-subtext font-mono">
@@ -150,9 +165,17 @@ export function App() {
             <span>Real-time Network Telemetry Platform</span>
           </div>
 
-          <div className="flex items-center space-x-6">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
             <span>Rialo Extended Execution (REX) Runtime</span>
             <span>Block Time Target: 50ms</span>
+            <a
+              href="https://explorer.rialo.io"
+              target="_blank"
+              rel="noreferrer"
+              className="text-rialo-accent hover:underline font-semibold"
+            >
+              Block Explorer
+            </a>
             <a
               href="https://rialo.io/for-devs"
               target="_blank"
@@ -165,6 +188,14 @@ export function App() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <WalletProvider>
+      <DashboardContent />
+    </WalletProvider>
   );
 }
 

@@ -1,23 +1,19 @@
 import React, { useState } from 'react';
-import type { FaucetStatus, WalletState, ContractEvent } from '../types';
-import { addRialoNetworkToWallet, RIALO_TESTNET_CHAIN_PARAMS, executeRpcRequest } from '../services/rpcService';
-import { Droplets, Wallet, Copy, Check, ExternalLink, RefreshCw, ArrowRightLeft } from 'lucide-react';
+import type { FaucetStatus } from '../types';
+import { useWallet } from '../context/WalletContext';
+import { RIALO_TESTNET_CHAIN_PARAMS, executeRpcRequest } from '../services/rpcService';
+import { Droplets, Wallet, Copy, Check, ExternalLink, RefreshCw, ArrowRightLeft, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 interface DevToolkitProps {
   faucetStatus: FaucetStatus;
-  walletState: WalletState;
-  setWalletState: React.Dispatch<React.SetStateAction<WalletState>>;
-  onAddEvent: (newEvent: ContractEvent) => void;
   currentBlockHeight: number;
 }
 
 export const DevToolkit: React.FC<DevToolkitProps> = ({
-  faucetStatus: initialFaucetStatus,
-  walletState,
-  setWalletState,
-  onAddEvent,
-  currentBlockHeight
+  faucetStatus: initialFaucetStatus
 }) => {
+  const { walletState, openConnectModal, switchNetwork, triggerFaucetDrip } = useWallet();
+
   // Address Lookup State
   const [lookupAddress, setLookupAddress] = useState<string>('');
   const [isLookingUp, setIsLookingUp] = useState<boolean>(false);
@@ -27,7 +23,7 @@ export const DevToolkit: React.FC<DevToolkitProps> = ({
   const [faucetStatus, setFaucetStatus] = useState<FaucetStatus>(initialFaucetStatus);
   const [dripAddress, setDripAddress] = useState<string>('');
   const [isDripping, setIsDripping] = useState<boolean>(false);
-  const [dripTxHash, setDripTxHash] = useState<string | null>(null);
+  const [lastDripTxHash, setLastDripTxHash] = useState<string | null>(null);
 
   // Hardhat Config State
   const [copiedConfig, setCopiedConfig] = useState<boolean>(false);
@@ -36,12 +32,13 @@ export const DevToolkit: React.FC<DevToolkitProps> = ({
   const [converterValue, setConverterValue] = useState<string>('1.0');
   const [converterUnit, setConverterUnit] = useState<'RIALO' | 'GWEI' | 'WEI'>('RIALO');
 
+  const effectiveLookupAddress = lookupAddress.trim() || walletState.address || '0x7140000000000000000000000000000000000001';
+
   const handleLookup = async () => {
-    const targetAddr = lookupAddress.trim() || walletState.address || '0x7140000000000000000000000000000000000001';
     setIsLookingUp(true);
 
-    const balanceRes = await executeRpcRequest('eth_getBalance', JSON.stringify([targetAddr, 'latest']));
-    const txCountRes = await executeRpcRequest('eth_getTransactionCount', JSON.stringify([targetAddr, 'latest']));
+    const balanceRes = await executeRpcRequest('eth_getBalance', JSON.stringify([effectiveLookupAddress, 'latest']));
+    const txCountRes = await executeRpcRequest('eth_getTransactionCount', JSON.stringify([effectiveLookupAddress, 'latest']));
 
     setIsLookingUp(false);
 
@@ -61,58 +58,28 @@ export const DevToolkit: React.FC<DevToolkitProps> = ({
     }
 
     setLookupResult({
-      address: targetAddr,
+      address: effectiveLookupAddress,
       balance: balStr,
       txCount: countNum
     });
   };
 
   const handleTriggerDrip = async () => {
-    const targetAddr = dripAddress.trim() || walletState.address || '0x7140000000000000000000000000000000000001';
+    const targetAddr = dripAddress.trim() || walletState.address || '0x7140B35e69b59C39110B6C0753549fC054097140';
     setIsDripping(true);
-    setDripTxHash(null);
+    setLastDripTxHash(null);
 
-    // Perform RPC transaction execution for Faucet Drip
-    const dripRes = await executeRpcRequest('eth_sendTransaction', JSON.stringify([{
-      from: '0x0000000000000000000000000000000000007140',
-      to: targetAddr,
-      value: '0x56BC75E2D63100000' // 100 RIALO in Wei hex
-    }]));
-
+    const res = await triggerFaucetDrip(targetAddr);
     setIsDripping(false);
 
-    const txHash = dripRes.status === 'success' && dripRes.result
-      ? dripRes.result
-      : `0x7f${Date.now().toString(16)}9a2b8e4c1d0f3a5b6c7d8e9f`;
-
-    setDripTxHash(txHash);
-
-    // Update faucet pool status
-    setFaucetStatus(prev => ({
-      ...prev,
-      poolBalanceRialo: Math.max(0, prev.poolBalanceRialo - 100),
-      totalDripped24h: prev.totalDripped24h + 100
-    }));
-
-    // If connected wallet is recipient, update wallet balance
-    if (walletState.isConnected && (!dripAddress.trim() || dripAddress.trim().toLowerCase() === walletState.address?.toLowerCase())) {
-      setWalletState(prev => ({
+    if (res.success && res.txHash) {
+      setLastDripTxHash(res.txHash);
+      setFaucetStatus(prev => ({
         ...prev,
-        balanceRialo: (parseFloat(prev.balanceRialo) + 100).toFixed(2)
+        poolBalanceRialo: Math.max(0, prev.poolBalanceRialo - 100),
+        totalDripped24h: prev.totalDripped24h + 100
       }));
     }
-
-    // Push Event to Event Streamer
-    onAddEvent({
-      id: `evt-faucet-${Date.now()}`,
-      timestamp: new Date().toLocaleTimeString(),
-      blockNumber: currentBlockHeight,
-      txHash,
-      eventName: 'FaucetDrip',
-      contractAddress: '0x0000000000000000000000000000000000007140',
-      dataSummary: `recipient: ${targetAddr.substring(0, 8)}...${targetAddr.substring(targetAddr.length - 4)}, drippedAmount: 100.00 RIALO`,
-      isRexConfidential: false
-    });
   };
 
   const handleCopyHardhatConfig = () => {
@@ -164,22 +131,39 @@ export const DevToolkit: React.FC<DevToolkitProps> = ({
       <div className="bg-rialo-card border border-rialo-border p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
           <div className="flex items-center space-x-2">
-            <h3 className="font-display text-xl font-bold text-rialo-text">One-Click Rialo Network Adder</h3>
-            <span className="w-2 h-2 rounded-full bg-status-online"></span>
+            <h3 className="font-display text-xl font-bold text-rialo-text">Rialo Testnet Network Manager</h3>
+            <span className={`w-2 h-2 rounded-full ${walletState.isWrongNetwork ? 'bg-status-offline animate-ping' : 'bg-status-online'}`}></span>
           </div>
           <p className="text-xs text-rialo-subtext mt-1 max-w-xl">
-            Instantly add Rialo Testnet (Chain ID 7146) to MetaMask, Phantom, or any Web3 provider with preconfigured 50ms block runtime RPC endpoints.
+            Instantly add Rialo Testnet (Chain ID 7146) to MetaMask, Phantom, Coinbase Wallet, or use our Sandbox mode with preconfigured 50ms block runtime RPC endpoints.
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 w-full md:w-auto">
-          <button
-            onClick={addRialoNetworkToWallet}
-            className="bg-rialo-text text-rialo-bg hover:bg-rialo-dark px-5 py-2.5 text-xs font-mono font-bold uppercase tracking-wider transition-colors border border-rialo-text flex items-center justify-center space-x-2"
-          >
-            <Wallet className="w-4 h-4 text-rialo-accent" />
-            <span>Add Rialo Testnet To Wallet</span>
-          </button>
+          {walletState.isConnected ? (
+            walletState.isWrongNetwork ? (
+              <button
+                onClick={switchNetwork}
+                className="bg-status-offline text-white hover:bg-status-offline/90 px-5 py-2.5 text-xs font-mono font-bold uppercase tracking-wider transition-colors border border-status-offline flex items-center justify-center space-x-2 shadow-sm"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                <span>Switch to Rialo Testnet (7146)</span>
+              </button>
+            ) : (
+              <div className="bg-status-online/10 text-status-online px-4 py-2 text-xs font-mono font-semibold border border-status-online/30 flex items-center space-x-2">
+                <ShieldCheck className="w-4 h-4" />
+                <span>Connected to Rialo Testnet (7146)</span>
+              </div>
+            )
+          ) : (
+            <button
+              onClick={openConnectModal}
+              className="bg-rialo-text text-rialo-bg hover:bg-rialo-dark px-5 py-2.5 text-xs font-mono font-bold uppercase tracking-wider transition-colors border border-rialo-text flex items-center justify-center space-x-2 shadow-sm"
+            >
+              <Wallet className="w-4 h-4 text-rialo-accent" />
+              <span>Connect Web3 Wallet</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -191,10 +175,11 @@ export const DevToolkit: React.FC<DevToolkitProps> = ({
             <div className="flex items-center justify-between pb-4 border-b border-rialo-border">
               <div className="flex items-center space-x-2">
                 <Droplets className="w-5 h-5 text-rialo-accent" />
-                <h3 className="font-display text-lg font-bold text-rialo-text">Testnet Faucet Helper</h3>
+                <h3 className="font-display text-lg font-bold text-rialo-text">Testnet Faucet (100 RIALO)</h3>
               </div>
-              <span className="text-xs font-mono uppercase text-status-online font-semibold">
-                Status: Active
+              <span className="text-xs font-mono uppercase text-status-online font-semibold flex items-center space-x-1">
+                <span className="w-2 h-2 rounded-full bg-status-online animate-subtle-pulse"></span>
+                <span>Active</span>
               </span>
             </div>
 
@@ -209,19 +194,30 @@ export const DevToolkit: React.FC<DevToolkitProps> = ({
               <div className="bg-rialo-surface p-3 border border-rialo-border">
                 <span className="text-[10px] uppercase text-rialo-muted block">Max Drip Amount</span>
                 <span className="text-lg font-bold text-rialo-text mt-1 block">
-                  {faucetStatus.maxDripAmount} RIALO / request
+                  {faucetStatus.maxDripAmount} RIALO / drip
                 </span>
               </div>
             </div>
 
             {/* Drip Form */}
             <div className="space-y-3">
-              <label className="block text-xs font-mono uppercase tracking-wider text-rialo-muted">
-                Recipient Testnet Wallet Address
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-mono uppercase tracking-wider text-rialo-muted">
+                  Recipient Testnet Wallet Address
+                </label>
+                {walletState.isConnected && (
+                  <button
+                    onClick={() => setDripAddress(walletState.address || '')}
+                    className="text-[10px] font-mono text-rialo-accent hover:underline uppercase"
+                  >
+                    Auto-fill Connected Address
+                  </button>
+                )}
+              </div>
+
               <input
                 type="text"
-                placeholder={walletState.address || "0x7140000000000000000000000000000000000001"}
+                placeholder={walletState.address || "0x7140B35e69b59C39110B6C0753549fC054097140"}
                 value={dripAddress}
                 onChange={(e) => setDripAddress(e.target.value)}
                 className="w-full bg-rialo-surface border border-rialo-border text-rialo-text p-2.5 font-mono text-xs focus:outline-none focus:border-rialo-text"
@@ -230,30 +226,40 @@ export const DevToolkit: React.FC<DevToolkitProps> = ({
               <button
                 onClick={handleTriggerDrip}
                 disabled={isDripping}
-                className="w-full bg-rialo-text text-rialo-bg hover:bg-rialo-dark py-2.5 text-xs font-mono font-semibold uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
+                className="w-full bg-rialo-text text-rialo-bg hover:bg-rialo-dark py-2.5 text-xs font-mono font-semibold uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 shadow-sm"
               >
-                <Droplets className="w-3.5 h-3.5 text-rialo-accent" />
-                <span>{isDripping ? 'Executing Testnet Drip...' : 'Request 100 RIALO Testnet Tokens'}</span>
+                <Droplets className={`w-3.5 h-3.5 text-rialo-accent ${isDripping ? 'animate-spin' : ''}`} />
+                <span>{isDripping ? 'Broadcasting Drip to 50ms Consensus...' : 'Claim 100 RIALO Testnet Tokens'}</span>
               </button>
             </div>
 
-            {dripTxHash && (
+            {lastDripTxHash && (
               <div className="mt-4 p-3 bg-status-online/10 border border-status-online/30 text-xs font-mono">
-                <div className="text-status-online font-bold">Token Drip Executed Successfully!</div>
-                <div className="text-rialo-subtext mt-1 truncate">Tx Hash: {dripTxHash}</div>
+                <div className="text-status-online font-bold flex items-center justify-between">
+                  <span>Drip Confirmed on Rialo Block! ✅</span>
+                  <a
+                    href={`https://explorer.rialo.io/tx/${lastDripTxHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-rialo-text hover:underline text-[10px] uppercase flex items-center space-x-1"
+                  >
+                    <span>Explorer ↗</span>
+                  </a>
+                </div>
+                <div className="text-rialo-subtext mt-1 truncate text-[11px]">Tx Hash: {lastDripTxHash}</div>
               </div>
             )}
           </div>
 
           <div className="mt-6 pt-4 border-t border-rialo-border flex items-center justify-between text-xs font-mono text-rialo-subtext">
-            <span>Official Portal: faucet.rialo.io</span>
+            <span>Explorer: explorer.rialo.io</span>
             <a
               href="https://faucet.rialo.io"
               target="_blank"
               rel="noreferrer"
               className="flex items-center space-x-1 text-rialo-accent hover:underline"
             >
-              <span>External Faucet</span>
+              <span>External Web Faucet</span>
               <ExternalLink className="w-3 h-3" />
             </a>
           </div>
@@ -268,13 +274,24 @@ export const DevToolkit: React.FC<DevToolkitProps> = ({
             </div>
 
             <div className="mt-5 space-y-3">
-              <label className="block text-xs font-mono uppercase tracking-wider text-rialo-muted">
-                Enter Wallet Address
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-mono uppercase tracking-wider text-rialo-muted">
+                  Enter Wallet Address
+                </label>
+                {walletState.isConnected && (
+                  <button
+                    onClick={() => setLookupAddress(walletState.address || '')}
+                    className="text-[10px] font-mono text-rialo-accent hover:underline uppercase"
+                  >
+                    Use Active Wallet
+                  </button>
+                )}
+              </div>
+
               <div className="flex space-x-2">
                 <input
                   type="text"
-                  placeholder="0x7140...0001"
+                  placeholder={walletState.address || "0x7140...0001"}
                   value={lookupAddress}
                   onChange={(e) => setLookupAddress(e.target.value)}
                   className="flex-1 bg-rialo-surface border border-rialo-border text-rialo-text p-2.5 font-mono text-xs focus:outline-none focus:border-rialo-text"
@@ -290,7 +307,7 @@ export const DevToolkit: React.FC<DevToolkitProps> = ({
               </div>
             </div>
 
-            {lookupResult && (
+            {lookupResult ? (
               <div className="mt-5 p-4 bg-rialo-surface border border-rialo-border font-mono text-xs space-y-2">
                 <div className="text-rialo-subtext text-[11px] uppercase tracking-wider">Live RPC Query Result</div>
                 <div className="flex justify-between border-b border-rialo-border pb-1.5">
@@ -306,11 +323,17 @@ export const DevToolkit: React.FC<DevToolkitProps> = ({
                   <span className="font-semibold text-rialo-text">{lookupResult.txCount} transactions</span>
                 </div>
               </div>
+            ) : (
+              <div className="mt-5 p-4 bg-rialo-surface/50 border border-dashed border-rialo-border font-mono text-xs text-rialo-muted text-center">
+                {walletState.isConnected
+                  ? `Click "Lookup" to query balance for ${walletState.address?.substring(0, 8)}...`
+                  : 'Enter any address or connect a wallet to view live RPC balances.'}
+              </div>
             )}
           </div>
 
           <div className="mt-6 pt-4 border-t border-rialo-border text-xs font-mono text-rialo-subtext">
-            Supports both Standard EVM & Rialo Native Key Formats
+            Supports Standard EVM, Phantom, MetaMask & Rialo Native Addresses
           </div>
         </div>
       </div>

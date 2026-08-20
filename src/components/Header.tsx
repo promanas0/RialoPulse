@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import type { NetworkType, WalletState } from '../types';
-import { addRialoNetworkToWallet } from '../services/rpcService';
-import { Activity, Cpu, Globe, Terminal, Wrench, CheckCircle2, AlertCircle } from 'lucide-react';
+import type { NetworkType } from '../types';
+import { useWallet } from '../context/WalletContext';
+import { Activity, Cpu, Globe, Terminal, Wrench, Droplets, Wallet, AlertTriangle } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: string;
@@ -9,8 +9,6 @@ interface HeaderProps {
   selectedNetwork: NetworkType;
   setSelectedNetwork: (net: NetworkType) => void;
   currentBlockHeight: number;
-  walletState: WalletState;
-  setWalletState: React.Dispatch<React.SetStateAction<WalletState>>;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,45 +16,15 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   selectedNetwork,
   setSelectedNetwork,
-  currentBlockHeight,
-  walletState,
-  setWalletState
+  currentBlockHeight
 }) => {
-  const [connecting, setConnecting] = useState(false);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const { walletState, openConnectModal, openAccountModal, triggerFaucetDrip } = useWallet();
+  const [isDrippingFaucet, setIsDrippingFaucet] = useState(false);
 
-  const handleConnectWallet = async () => {
-    setConnecting(true);
-    setNotification(null);
-
-    const result = await addRialoNetworkToWallet();
-
-    if (result.success) {
-      if (typeof window !== 'undefined' && (window as any).ethereum) {
-        const eth = (window as any).ethereum;
-        try {
-          const accounts = await eth.request({ method: 'eth_requestAccounts' });
-          if (accounts && accounts[0]) {
-            setWalletState({
-              address: accounts[0],
-              isConnected: true,
-              balanceRialo: '250.00',
-              networkId: '7146'
-            });
-          }
-        } catch {
-          // Default state update
-        }
-      } else {
-        setWalletState(prev => ({ ...prev, isConnected: true }));
-      }
-      setNotification({ type: 'success', message: result.message });
-    } else {
-      setNotification({ type: 'error', message: result.message });
-    }
-
-    setConnecting(false);
-    setTimeout(() => setNotification(null), 5000);
+  const handleHeaderFaucetClick = async () => {
+    setIsDrippingFaucet(true);
+    await triggerFaucetDrip();
+    setIsDrippingFaucet(false);
   };
 
   const navItems = [
@@ -86,10 +54,11 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </div>
 
-        {/* Live Network & Block Height Indicator */}
-        <div className="flex items-center space-x-6 text-sm font-mono">
+        {/* Live Network & Block Height Indicator & Wallet Controls */}
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm font-mono">
+          {/* Network Switcher Tabs */}
           <div className="flex items-center space-x-2">
-            <span className="text-xs uppercase tracking-wider text-rialo-muted font-sans">Network</span>
+            <span className="text-xs uppercase tracking-wider text-rialo-muted font-sans hidden sm:inline">Network</span>
             <div className="flex border border-rialo-border bg-rialo-surface p-0.5 text-xs">
               <button
                 onClick={() => setSelectedNetwork('Testnet')}
@@ -114,6 +83,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
+          {/* Block Height Pill */}
           <div className="hidden md:flex items-center space-x-2">
             <Cpu className="w-4 h-4 text-rialo-subtext" />
             <span className="text-xs uppercase tracking-wider text-rialo-muted font-sans">Block</span>
@@ -122,35 +92,63 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
 
-          <div className="hidden lg:flex items-center space-x-2 text-xs">
+          {/* 50ms Target */}
+          <div className="hidden xl:flex items-center space-x-2 text-xs">
             <span className="w-2 h-2 rounded-full bg-status-online animate-subtle-pulse"></span>
-            <span className="text-rialo-subtext font-sans uppercase tracking-wider">50ms Block Time Target</span>
+            <span className="text-rialo-subtext font-sans uppercase tracking-wider">50ms Block Target</span>
           </div>
 
-          {/* Connect / Network Switch Button */}
+          {/* Quick Faucet Mint Button (Testing Ease) */}
           <button
-            onClick={handleConnectWallet}
-            disabled={connecting}
-            className="flex items-center space-x-2 bg-rialo-text text-rialo-bg hover:bg-rialo-dark px-3.5 py-1.5 text-xs font-medium tracking-wide uppercase transition-colors border border-rialo-text disabled:opacity-50"
+            onClick={handleHeaderFaucetClick}
+            disabled={isDrippingFaucet}
+            className="flex items-center space-x-1.5 bg-rialo-surface hover:bg-rialo-sand border border-rialo-border text-rialo-text px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-colors disabled:opacity-50"
+            title="Instant 100 RIALO Testnet Faucet Drip"
           >
-            <span>
-              {walletState.isConnected
-                ? `${walletState.address?.substring(0, 6)}...${walletState.address?.substring(38)}`
-                : 'Add Rialo Network'}
-            </span>
+            <Droplets className={`w-3.5 h-3.5 text-rialo-accent ${isDrippingFaucet ? 'animate-bounce' : ''}`} />
+            <span className="hidden sm:inline">Faucet (100 RIALO)</span>
+            <span className="sm:hidden">Faucet</span>
           </button>
+
+          {/* Connect / Account Button */}
+          {walletState.isConnected && walletState.address ? (
+            <button
+              onClick={openAccountModal}
+              className={`flex items-center space-x-2 px-3 py-1.5 text-xs font-medium tracking-wide uppercase transition-all border ${
+                walletState.isWrongNetwork
+                  ? 'bg-status-offline/10 border-status-offline text-status-offline hover:bg-status-offline/20'
+                  : 'bg-rialo-card border-rialo-text text-rialo-text hover:bg-rialo-surface shadow-xs'
+              }`}
+            >
+              {walletState.isWrongNetwork ? (
+                <>
+                  <AlertTriangle className="w-3.5 h-3.5 text-status-offline shrink-0" />
+                  <span className="font-bold">Wrong Chain</span>
+                </>
+              ) : (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-status-online shrink-0"></span>
+                  <span className="font-bold">
+                    {walletState.address.substring(0, 6)}...{walletState.address.substring(walletState.address.length - 4)}
+                  </span>
+                  <span className="hidden sm:inline text-rialo-muted font-normal">|</span>
+                  <span className="hidden sm:inline text-rialo-accent font-semibold">
+                    {walletState.balanceRialo} RIALO
+                  </span>
+                </>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={openConnectModal}
+              className="flex items-center space-x-2 bg-rialo-text text-rialo-bg hover:bg-rialo-dark px-3.5 py-1.5 text-xs font-medium tracking-wide uppercase transition-colors border border-rialo-text shadow-sm"
+            >
+              <Wallet className="w-3.5 h-3.5 text-rialo-accent" />
+              <span>Connect Wallet</span>
+            </button>
+          )}
         </div>
       </div>
-
-      {/* Notification Banner if any */}
-      {notification && (
-        <div className={`px-4 py-2 text-xs font-mono flex items-center justify-center space-x-2 ${
-          notification.type === 'success' ? 'bg-status-online/10 text-status-online border-y border-status-online/20' : 'bg-status-offline/10 text-status-offline border-y border-status-offline/20'
-        }`}>
-          {notification.type === 'success' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
-          <span>{notification.message}</span>
-        </div>
-      )}
 
       {/* Main Tab Navigation Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-rialo-border">

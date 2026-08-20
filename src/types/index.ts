@@ -81,9 +81,32 @@ export interface FaucetStatus {
   totalDripped24h: number;
 }
 
+export type WalletProviderType = 'metamask' | 'phantom' | 'coinbase' | 'injected' | 'demo';
+
 export interface WalletState {
   address: string | null;
   isConnected: boolean;
   balanceRialo: string;
   networkId: string | null;
+  chainIdHex: string | null;
+  isWrongNetwork: boolean;
+  walletType: WalletProviderType | null;
+  isConnecting: boolean;
 }
+
+export interface WalletProviderInfo {
+  id: WalletProviderType;
+  name: string;
+  iconName: string;
+  description: string;
+  isInstalled: boolean;
+  downloadUrl?: string;
+}
+
+export interface TxFeedbackOptions {
+  title?: string;
+  description?: string;
+  txHash?: string;
+  explorerUrl?: string;
+}
+

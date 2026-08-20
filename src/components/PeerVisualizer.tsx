@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { PeerNode } from '../types';
-import { Globe, Server, Activity, ShieldCheck, MapPin, Search, PlusCircle, X } from 'lucide-react';
+import { NetworkGlobe } from './NetworkGlobe';
+import { Globe, Server, Activity, ShieldCheck, MapPin, Search, PlusCircle, X, Layers, Compass } from 'lucide-react';
 
 interface PeerVisualizerProps {
   peers: PeerNode[];
@@ -13,10 +14,12 @@ export const PeerVisualizer: React.FC<PeerVisualizerProps> = ({
   onAddPeer,
   currentBlockHeight
 }) => {
+  const [viewMode, setViewMode] = useState<'3D' | '2D'>('3D');
   const [selectedRegion, setSelectedRegion] = useState<string>('All');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'All' | 'synced' | 'syncing'>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [hoveredPeer, setHoveredPeer] = useState<PeerNode | null>(null);
+  const [selectedPeer, setSelectedPeer] = useState<PeerNode | null>(null);
 
   // Add peer modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -56,7 +59,7 @@ export const PeerVisualizer: React.FC<PeerVisualizerProps> = ({
     ? Math.round(processedPeers.reduce((acc, p) => acc + p.pingMs, 0) / processedPeers.length) 
     : 0;
 
-  // Simple coordinate projection for world map representation
+  // Simple coordinate projection for world map representation (2D view)
   const projectCoords = (lat: number, lng: number) => {
     const x = ((lng + 180) / 360) * 100;
     const y = ((90 - lat) / 180) * 100;
@@ -88,6 +91,7 @@ export const PeerVisualizer: React.FC<PeerVisualizerProps> = ({
       onAddPeer(createdPeer);
     }
 
+    setSelectedPeer(createdPeer);
     setNewNodeName('');
     setIsAddModalOpen(false);
   };
@@ -147,22 +151,53 @@ export const PeerVisualizer: React.FC<PeerVisualizerProps> = ({
         </div>
       </div>
 
-      {/* Interactive Global Map Visualizer */}
+      {/* Main Visualizer Container: 3D Interactive Globe vs 2D Flat Matrix Map */}
       <div className="bg-rialo-card border border-rialo-border p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-rialo-border gap-4">
           <div>
-            <h3 className="font-display text-lg font-bold text-rialo-text">Geographic Peer Distribution</h3>
-            <p className="text-xs text-rialo-subtext mt-0.5">Live geolocation telemetry of active Rialo validator nodes</p>
+            <div className="flex items-center space-x-2">
+              <h3 className="font-display text-lg font-bold text-rialo-text">Geographic Peer Distribution</h3>
+              <span className="text-[10px] font-mono uppercase bg-rialo-accent/10 text-rialo-accent px-1.5 py-0.2 font-semibold">
+                3D WebGL Live
+              </span>
+            </div>
+            <p className="text-xs text-rialo-subtext mt-0.5">Drag to rotate the 3D globe and inspect active validator nodes</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {/* View Mode Toggle */}
+            <div className="flex border border-rialo-border bg-rialo-surface p-0.5 text-xs font-mono">
+              <button
+                onClick={() => setViewMode('3D')}
+                className={`px-3 py-1 flex items-center space-x-1.5 transition-colors ${
+                  viewMode === '3D'
+                    ? 'bg-rialo-card text-rialo-text font-bold shadow-xs border border-rialo-border'
+                    : 'text-rialo-subtext hover:text-rialo-text'
+                }`}
+              >
+                <Compass className="w-3.5 h-3.5 text-rialo-accent" />
+                <span>3D Globe</span>
+              </button>
+              <button
+                onClick={() => setViewMode('2D')}
+                className={`px-3 py-1 flex items-center space-x-1.5 transition-colors ${
+                  viewMode === '2D'
+                    ? 'bg-rialo-card text-rialo-text font-bold shadow-xs border border-rialo-border'
+                    : 'text-rialo-subtext hover:text-rialo-text'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5 text-rialo-muted" />
+                <span>2D Map</span>
+              </button>
+            </div>
+
             {/* Region Filters */}
             <div className="flex flex-wrap gap-1 bg-rialo-surface p-1 border border-rialo-border text-xs">
               {regions.map((reg) => (
                 <button
                   key={reg}
                   onClick={() => setSelectedRegion(reg)}
-                  className={`px-3 py-1 font-medium transition-colors ${
+                  className={`px-2.5 py-1 font-medium transition-colors ${
                     selectedRegion === reg
                       ? 'bg-rialo-card text-rialo-text border border-rialo-border shadow-sm'
                       : 'text-rialo-subtext hover:text-rialo-text'
@@ -176,82 +211,98 @@ export const PeerVisualizer: React.FC<PeerVisualizerProps> = ({
             {/* Add Node Button */}
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center space-x-1.5 bg-rialo-text text-rialo-bg hover:bg-rialo-dark px-3 py-1.5 text-xs font-mono font-semibold uppercase tracking-wider transition-colors border border-rialo-text"
+              className="flex items-center space-x-1.5 bg-rialo-text text-rialo-bg hover:bg-rialo-dark px-3 py-1.5 text-xs font-mono font-semibold uppercase tracking-wider transition-colors border border-rialo-text shadow-sm"
             >
-              <PlusCircle className="w-3.5 h-3.5" />
+              <PlusCircle className="w-3.5 h-3.5 text-rialo-accent" />
               <span>Monitor Custom Node</span>
             </button>
           </div>
         </div>
 
-        {/* Map Container Canvas */}
-        <div className="relative w-full h-80 sm:h-96 mt-6 bg-[#E3DCCB] border border-rialo-border overflow-hidden p-4">
-          {/* Subtle World Map Grid Lines */}
-          <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#C9C0AA_1px,transparent_1px),linear-gradient(to_bottom,#C9C0AA_1px,transparent_1px)] bg-[size:4%_8%]"></div>
+        {/* View Mode Component Rendering */}
+        <div className="mt-6">
+          {viewMode === '3D' ? (
+            <NetworkGlobe
+              peers={filteredPeers}
+              onSelectPeer={setSelectedPeer}
+              selectedPeer={selectedPeer}
+              currentBlockHeight={currentBlockHeight}
+            />
+          ) : (
+            <div className="relative w-full h-80 sm:h-96 bg-[#E3DCCB] border border-rialo-border overflow-hidden p-4">
+              {/* Subtle World Map Grid Lines */}
+              <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#C9C0AA_1px,transparent_1px),linear-gradient(to_bottom,#C9C0AA_1px,transparent_1px)] bg-[size:4%_8%]"></div>
 
-          {/* Peer Node Points on Map */}
-          {filteredPeers.map((peer) => {
-            const { x, y } = projectCoords(peer.lat, peer.lng);
-            const isHovered = hoveredPeer?.id === peer.id;
+              {/* Peer Node Points on 2D Map */}
+              {filteredPeers.map((peer) => {
+                const { x, y } = projectCoords(peer.lat, peer.lng);
+                const isHovered = hoveredPeer?.id === peer.id;
+                const isSelected = selectedPeer?.id === peer.id;
 
-            return (
-              <div
-                key={peer.id}
-                style={{ left: `${x}%`, top: `${y}%` }}
-                onMouseEnter={() => setHoveredPeer(peer)}
-                onMouseLeave={() => setHoveredPeer(null)}
-                className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer group z-10"
-              >
-                {/* Ping Pulse Rings */}
-                <span className={`absolute inline-flex h-6 w-6 -left-2 -top-2 rounded-full opacity-40 animate-ping ${
-                  peer.status === 'synced' ? 'bg-status-online' : 'bg-status-degraded'
-                }`}></span>
-                
-                {/* Node Marker Dot */}
-                <span className={`relative inline-block w-3 h-3 rounded-full border-2 border-rialo-card transition-transform ${
-                  peer.status === 'synced' ? 'bg-status-online' : 'bg-status-degraded'
-                } ${isHovered ? 'scale-150' : 'group-hover:scale-125'}`}></span>
+                return (
+                  <div
+                    key={peer.id}
+                    style={{ left: `${x}%`, top: `${y}%` }}
+                    onMouseEnter={() => setHoveredPeer(peer)}
+                    onMouseLeave={() => setHoveredPeer(null)}
+                    onClick={() => setSelectedPeer(peer)}
+                    className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer group z-10"
+                  >
+                    {/* Ping Pulse Rings */}
+                    <span className={`absolute inline-flex h-6 w-6 -left-2 -top-2 rounded-full opacity-40 animate-ping ${
+                      peer.status === 'synced' ? 'bg-status-online' : 'bg-status-degraded'
+                    }`}></span>
+                    
+                    {/* Node Marker Dot */}
+                    <span className={`relative inline-block w-3.5 h-3.5 rounded-full border-2 border-rialo-card transition-transform ${
+                      peer.status === 'synced' ? 'bg-status-online' : 'bg-status-degraded'
+                    } ${isHovered || isSelected ? 'scale-150 ring-2 ring-rialo-accent' : 'group-hover:scale-125'}`}></span>
 
-                {/* Hover Tooltip Popup */}
-                {isHovered && (
-                  <div className="absolute left-1/2 bottom-full mb-2 -translate-x-1/2 w-56 bg-rialo-text text-rialo-bg p-3 shadow-xl z-30 font-mono text-xs pointer-events-none">
-                    <div className="font-bold flex items-center justify-between border-b border-rialo-subtext/40 pb-1 mb-1.5">
-                      <span>{peer.nodeName}</span>
-                      <span className={`text-[10px] uppercase ${peer.status === 'synced' ? 'text-status-online' : 'text-status-degraded'}`}>
-                        {peer.status}
-                      </span>
-                    </div>
-                    <div className="space-y-1 text-[11px] text-rialo-sand">
-                      <div>Location: {peer.country}</div>
-                      <div>Latency: {peer.pingMs} ms</div>
-                      <div>Uptime: {peer.uptimePct}%</div>
-                      <div>Version: {peer.version}</div>
-                      <div>Block: #{peer.blockHeight.toLocaleString()}</div>
-                    </div>
+                    {/* Hover Tooltip Popup */}
+                    {(isHovered || isSelected) && (
+                      <div className="absolute left-1/2 bottom-full mb-2 -translate-x-1/2 w-56 bg-rialo-text text-rialo-bg p-3 shadow-xl z-30 font-mono text-xs pointer-events-none">
+                        <div className="font-bold flex items-center justify-between border-b border-rialo-subtext/40 pb-1 mb-1.5">
+                          <span>{peer.nodeName}</span>
+                          <span className={`text-[10px] uppercase ${peer.status === 'synced' ? 'text-status-online' : 'text-status-degraded'}`}>
+                            {peer.status}
+                          </span>
+                        </div>
+                        <div className="space-y-1 text-[11px] text-rialo-sand">
+                          <div>Location: {peer.country}</div>
+                          <div>Latency: {peer.pingMs} ms</div>
+                          <div>Uptime: {peer.uptimePct}%</div>
+                          <div>Version: {peer.version}</div>
+                          <div>Block: #{peer.blockHeight.toLocaleString()}</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
 
-          {/* Map Legend */}
-          <div className="absolute bottom-3 left-3 bg-rialo-card/90 border border-rialo-border px-3 py-2 text-xs font-mono flex items-center space-x-4">
-            <div className="flex items-center space-x-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-status-online"></span>
-              <span className="text-rialo-text">Synced Node</span>
+              {/* Map Legend */}
+              <div className="absolute bottom-3 left-3 bg-rialo-card/90 border border-rialo-border px-3 py-2 text-xs font-mono flex items-center space-x-4">
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-status-online"></span>
+                  <span className="text-rialo-text">Synced Node</span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-status-degraded"></span>
+                  <span className="text-rialo-text">Syncing Node</span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center space-x-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-status-degraded"></span>
-              <span className="text-rialo-text">Syncing Node</span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Node Telemetry Table with Search & Filter */}
       <div className="bg-rialo-card border border-rialo-border p-6 overflow-x-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-rialo-border gap-4 mb-4">
-          <h3 className="font-display text-lg font-bold text-rialo-text">Validator & Sequencer Telemetry Matrix</h3>
+          <div>
+            <h3 className="font-display text-lg font-bold text-rialo-text">Validator & Sequencer Telemetry Matrix</h3>
+            <p className="text-xs text-rialo-subtext mt-0.5">Click any node row to automatically focus and rotate the 3D globe</p>
+          </div>
 
           <div className="flex items-center space-x-3 text-xs font-mono">
             {/* Search Box */}
@@ -298,36 +349,49 @@ export const PeerVisualizer: React.FC<PeerVisualizerProps> = ({
                 </td>
               </tr>
             ) : (
-              filteredPeers.map((peer) => (
-                <tr key={peer.id} className="hover:bg-rialo-surface/50 transition-colors">
-                  <td className="py-3 font-medium text-rialo-text flex items-center space-x-2">
-                    <MapPin className="w-3.5 h-3.5 text-rialo-muted" />
-                    <span>{peer.nodeName}</span>
-                  </td>
-                  <td className="py-3 text-rialo-subtext">
-                    {peer.country} ({peer.region})
-                  </td>
-                  <td className="py-3 font-semibold text-rialo-text">
-                    {peer.pingMs} ms
-                  </td>
-                  <td className="py-3">
-                    <span className={`inline-flex items-center space-x-1.5 ${
-                      peer.status === 'synced' ? 'text-status-online' : 'text-status-degraded'
-                    }`}>
-                      <span className={`w-2 h-2 rounded-full ${
-                        peer.status === 'synced' ? 'bg-status-online' : 'bg-status-degraded'
-                      }`}></span>
-                      <span className="uppercase text-[11px] font-semibold">{peer.status}</span>
-                    </span>
-                  </td>
-                  <td className="py-3 text-rialo-subtext">
-                    {peer.uptimePct}%
-                  </td>
-                  <td className="py-3 text-right text-rialo-text font-bold">
-                    #{peer.blockHeight.toLocaleString()}
-                  </td>
-                </tr>
-              ))
+              filteredPeers.map((peer) => {
+                const isSelected = selectedPeer?.id === peer.id;
+                return (
+                  <tr
+                    key={peer.id}
+                    onClick={() => {
+                      setSelectedPeer(peer);
+                      setViewMode('3D');
+                    }}
+                    className={`cursor-pointer transition-colors ${
+                      isSelected ? 'bg-rialo-accent/10 border-l-2 border-rialo-accent' : 'hover:bg-rialo-surface/50'
+                    }`}
+                    title="Click to focus on 3D Globe"
+                  >
+                    <td className="py-3 font-medium text-rialo-text flex items-center space-x-2">
+                      <MapPin className={`w-3.5 h-3.5 ${isSelected ? 'text-rialo-accent' : 'text-rialo-muted'}`} />
+                      <span className={isSelected ? 'font-bold text-rialo-accent' : ''}>{peer.nodeName}</span>
+                    </td>
+                    <td className="py-3 text-rialo-subtext">
+                      {peer.country} ({peer.region})
+                    </td>
+                    <td className="py-3 font-semibold text-rialo-text">
+                      {peer.pingMs} ms
+                    </td>
+                    <td className="py-3">
+                      <span className={`inline-flex items-center space-x-1.5 ${
+                        peer.status === 'synced' ? 'text-status-online' : 'text-status-degraded'
+                      }`}>
+                        <span className={`w-2 h-2 rounded-full ${
+                          peer.status === 'synced' ? 'bg-status-online' : 'bg-status-degraded'
+                        }`}></span>
+                        <span className="uppercase text-[11px] font-semibold">{peer.status}</span>
+                      </span>
+                    </td>
+                    <td className="py-3 text-rialo-subtext">
+                      {peer.uptimePct}%
+                    </td>
+                    <td className="py-3 text-right text-rialo-text font-bold">
+                      #{peer.blockHeight.toLocaleString()}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

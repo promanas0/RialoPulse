@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import type { ContractEvent, RpcPreset, RpcResponse, RpcEndpoint } from '../types';
 import { executeRpcRequest } from '../services/rpcService';
-import { Play, Pause, Trash2, Copy, Check, Cpu, Terminal, Zap, Search } from 'lucide-react';
+import { useWallet } from '../context/WalletContext';
+import { showTxPending, showTxSuccess, showTxError } from '../services/transactionToast';
+import { Play, Pause, Trash2, Copy, Check, Cpu, Terminal, Zap, Search, Droplets } from 'lucide-react';
 
 interface ContractSandboxProps {
   events: ContractEvent[];
@@ -20,6 +22,8 @@ export const ContractSandbox: React.FC<ContractSandboxProps> = ({
   onAddEvent,
   currentBlockHeight
 }) => {
+  const { triggerFaucetDrip } = useWallet();
+
   // Event streamer state
   const [eventFilter, setEventFilter] = useState<'ALL' | 'REX' | 'TRANSFER'>('ALL');
   const [isStreamPaused, setIsStreamPaused] = useState<boolean>(false);
@@ -29,10 +33,11 @@ export const ContractSandbox: React.FC<ContractSandboxProps> = ({
   const [selectedPreset, setSelectedPreset] = useState<RpcPreset>(rpcPresets[0]);
   const [customMethod, setCustomMethod] = useState<string>(rpcPresets[0].method);
   const [paramsJson, setParamsJson] = useState<string>(rpcPresets[0].paramsJson);
-  const [selectedRpcUrl, setSelectedRpcUrl] = useState<string>(rpcEndpoints[0].url);
+  const [selectedRpcUrl, setSelectedRpcUrl] = useState<string>(rpcEndpoints[0]?.url || 'https://testnet-rpc.rialo.io');
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
   const [response, setResponse] = useState<RpcResponse | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
+  const [isDrippingFaucet, setIsDrippingFaucet] = useState(false);
 
   const handleSelectPreset = (preset: RpcPreset) => {
     setSelectedPreset(preset);
@@ -42,19 +47,31 @@ export const ContractSandbox: React.FC<ContractSandboxProps> = ({
 
   const handleExecute = async () => {
     setIsExecuting(true);
+    showTxPending('Broadcasting RPC Request', `Calling ${customMethod} via Rialo 50ms consensus...`);
+
     const res = await executeRpcRequest(customMethod, paramsJson, selectedRpcUrl);
     setResponse(res);
     setIsExecuting(false);
 
-    if (!isStreamPaused) {
-      const isRex = customMethod.includes('REX') || customMethod.includes('rialo');
-      const hexHash = `0x${(Date.now() * 17).toString(16)}${(Date.now() * 31).toString(16)}`;
+    const isRex = customMethod.includes('REX') || customMethod.includes('rialo');
+    const hexHash = `0x${(Date.now() * 17).toString(16)}${(Date.now() * 31).toString(16)}`.substring(0, 42);
 
+    if (res.status === 'success') {
+      showTxSuccess(
+        `RPC ${customMethod} Executed! ✅`,
+        hexHash,
+        `Execution time: ${res.executionTimeMs}ms. Response received.`
+      );
+    } else {
+      showTxError(`RPC ${customMethod} Failed ❌`, res.error || 'Execution error');
+    }
+
+    if (!isStreamPaused) {
       const newEvt: ContractEvent = {
         id: `evt-${Date.now()}`,
         timestamp: new Date().toLocaleTimeString(),
         blockNumber: currentBlockHeight,
-        txHash: hexHash.substring(0, 42),
+        txHash: hexHash,
         eventName: isRex ? 'REXExecutionCommit' : (customMethod.startsWith('eth_') ? customMethod.replace('eth_', '') : 'RpcCallExecuted'),
         contractAddress: selectedRpcUrl.includes('testnet') ? '0x71400000000000000000000000000000000000ff' : '0x3a4f89d12e567890abcdef1234567890abcdef12',
         dataSummary: res.status === 'success'
@@ -70,43 +87,56 @@ export const ContractSandbox: React.FC<ContractSandboxProps> = ({
   const handleTriggerQuickSample = (type: 'TRANSFER' | 'REX' | 'GASLESS') => {
     const txId = Date.now();
     let newEvt: ContractEvent;
+    let sampleTxHash = '';
 
     if (type === 'REX') {
+      sampleTxHash = `0x${(txId * 41).toString(16)}${(txId * 19).toString(16)}`.substring(0, 42);
       newEvt = {
         id: `evt-${txId}`,
         timestamp: new Date().toLocaleTimeString(),
         blockNumber: currentBlockHeight,
-        txHash: `0x${(txId * 41).toString(16)}${(txId * 19).toString(16)}`.substring(0, 42),
+        txHash: sampleTxHash,
         eventName: 'REXConfidentialCompute',
         contractAddress: '0x71400000000000000000000000000000000000ff',
         dataSummary: `zkProof: verified, cycles: ${3200 + (txId % 1500)}, memoryStateRoot: 0x8f7a...fa`,
         isRexConfidential: true
       };
+      showTxSuccess('REX Confidential Compute Confirmed! 🛡️', sampleTxHash, 'Zero-knowledge proof verified in 50ms block.');
     } else if (type === 'GASLESS') {
+      sampleTxHash = `0x${(txId * 23).toString(16)}${(txId * 37).toString(16)}`.substring(0, 42);
       newEvt = {
         id: `evt-${txId}`,
         timestamp: new Date().toLocaleTimeString(),
         blockNumber: currentBlockHeight,
-        txHash: `0x${(txId * 23).toString(16)}${(txId * 37).toString(16)}`.substring(0, 42),
+        txHash: sampleTxHash,
         eventName: 'GaslessExecution',
         contractAddress: '0x9999888877776666555544443333222211110000',
         dataSummary: 'relayer: 0x11...88, sponsor: RialoDevnetPaymaster, gasPaid: 0.000000 RIALO',
         isRexConfidential: false
       };
+      showTxSuccess('Gasless Paymaster Tx Confirmed! ⚡', sampleTxHash, 'Sponsored by Rialo Devnet Paymaster.');
     } else {
+      sampleTxHash = `0x${(txId * 13).toString(16)}${(txId * 29).toString(16)}`.substring(0, 42);
       newEvt = {
         id: `evt-${txId}`,
         timestamp: new Date().toLocaleTimeString(),
         blockNumber: currentBlockHeight,
-        txHash: `0x${(txId * 13).toString(16)}${(txId * 29).toString(16)}`.substring(0, 42),
+        txHash: sampleTxHash,
         eventName: 'Transfer',
         contractAddress: '0x3a4f89d12e567890abcdef1234567890abcdef12',
         dataSummary: `from: 0x8a...29, to: 0x4c...91, amount: ${((txId % 1000) / 10 + 5).toFixed(2)} RIALO`,
         isRexConfidential: false
       };
+      showTxSuccess('RIALO Transfer Confirmed! 💸', sampleTxHash, `Transferred ${((txId % 1000) / 10 + 5).toFixed(2)} RIALO.`);
     }
 
     onAddEvent(newEvt);
+  };
+
+  const handleQuickFaucet = async () => {
+    setIsDrippingFaucet(true);
+    await triggerFaucetDrip();
+    setIsDrippingFaucet(false);
   };
 
   const handleCopyResponse = () => {
@@ -147,6 +177,17 @@ export const ContractSandbox: React.FC<ContractSandboxProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
+            {/* Quick Faucet Button */}
+            <button
+              onClick={handleQuickFaucet}
+              disabled={isDrippingFaucet}
+              className="p-1.5 border border-rialo-border text-rialo-text hover:bg-rialo-surface transition-colors flex items-center space-x-1 text-xs font-mono"
+              title="Quick Claim 100 RIALO Testnet Faucet"
+            >
+              <Droplets className={`w-3.5 h-3.5 text-rialo-accent ${isDrippingFaucet ? 'animate-bounce' : ''}`} />
+              <span className="hidden sm:inline">Faucet</span>
+            </button>
+
             <button
               onClick={() => setIsStreamPaused(!isStreamPaused)}
               className="p-1.5 border border-rialo-border text-rialo-subtext hover:text-rialo-text hover:bg-rialo-surface transition-colors flex items-center space-x-1 text-xs font-mono"
@@ -227,7 +268,7 @@ export const ContractSandbox: React.FC<ContractSandboxProps> = ({
         {/* Streaming Logs Container */}
         <div className="flex-1 mt-3 overflow-y-auto space-y-2.5 font-mono text-xs pr-1">
           {filteredEvents.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-rialo-muted text-xs">
+            <div className="h-full flex items-center justify-center text-rialo-muted text-xs font-sans">
               No contract events matching current filter.
             </div>
           ) : (
@@ -263,8 +304,16 @@ export const ContractSandbox: React.FC<ContractSandboxProps> = ({
                   {evt.dataSummary}
                 </div>
 
-                <div className="mt-1.5 text-[10px] text-rialo-subtext truncate">
-                  Tx: {evt.txHash}
+                <div className="mt-1.5 text-[10px] text-rialo-subtext flex items-center justify-between">
+                  <span className="truncate max-w-[200px]">Tx: {evt.txHash}</span>
+                  <a
+                    href={`https://explorer.rialo.io/tx/${evt.txHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-rialo-accent hover:underline uppercase text-[9px] font-bold"
+                  >
+                    Explorer ↗
+                  </a>
                 </div>
               </div>
             ))
@@ -351,7 +400,7 @@ export const ContractSandbox: React.FC<ContractSandboxProps> = ({
           <button
             onClick={handleExecute}
             disabled={isExecuting}
-            className="w-full bg-rialo-text text-rialo-bg hover:bg-rialo-dark py-2 text-xs font-mono font-semibold uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
+            className="w-full bg-rialo-text text-rialo-bg hover:bg-rialo-dark py-2 text-xs font-mono font-semibold uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 shadow-sm"
           >
             <Terminal className="w-3.5 h-3.5" />
             <span>{isExecuting ? 'Executing RPC Request...' : 'Send RPC Request'}</span>
