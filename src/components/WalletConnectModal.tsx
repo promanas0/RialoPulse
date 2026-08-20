@@ -2,7 +2,8 @@ import React from 'react';
 import { useWallet } from '../context/WalletContext';
 import { getAvailableWalletProviders } from '../services/walletService';
 import type { WalletProviderType } from '../types';
-import { X, ExternalLink, Loader2, Sparkles, Shield, ArrowRight } from 'lucide-react';
+import { MetaMaskLogo, PhantomLogo, CoinbaseLogo, Web3InjectedLogo, SandboxReviewerLogo } from './WalletIcons';
+import { X, ExternalLink, Loader2, ArrowRight } from 'lucide-react';
 
 export const WalletConnectModal: React.FC = () => {
   const { isConnectModalOpen, closeConnectModal, connect, walletState } = useWallet();
@@ -18,36 +19,16 @@ export const WalletConnectModal: React.FC = () => {
   const getProviderIcon = (id: WalletProviderType) => {
     switch (id) {
       case 'metamask':
-        return (
-          <div className="w-8 h-8 rounded-full bg-[#F6851B]/10 flex items-center justify-center border border-[#F6851B]/30 shrink-0">
-            <span className="font-bold text-xs text-[#E2761B]">🦊</span>
-          </div>
-        );
+        return <MetaMaskLogo className="w-8 h-8" size={32} />;
       case 'phantom':
-        return (
-          <div className="w-8 h-8 rounded-full bg-[#AB9FF2]/10 flex items-center justify-center border border-[#AB9FF2]/30 shrink-0">
-            <span className="font-bold text-xs text-[#8A7CE8]">👻</span>
-          </div>
-        );
+        return <PhantomLogo className="w-8 h-8" size={32} />;
       case 'coinbase':
-        return (
-          <div className="w-8 h-8 rounded-full bg-[#0052FF]/10 flex items-center justify-center border border-[#0052FF]/30 shrink-0">
-            <span className="font-bold text-xs text-[#0052FF]">🔵</span>
-          </div>
-        );
+        return <CoinbaseLogo className="w-8 h-8" size={32} />;
       case 'demo':
-        return (
-          <div className="w-8 h-8 rounded-full bg-[#C85A27]/10 flex items-center justify-center border border-[#C85A27]/30 shrink-0">
-            <Sparkles className="w-4 h-4 text-[#C85A27]" />
-          </div>
-        );
+        return <SandboxReviewerLogo className="w-8 h-8" size={32} />;
       case 'injected':
       default:
-        return (
-          <div className="w-8 h-8 rounded-full bg-[#1C1C1A]/10 flex items-center justify-center border border-[#1C1C1A]/20 shrink-0">
-            <Shield className="w-4 h-4 text-[#1C1C1A]" />
-          </div>
-        );
+        return <Web3InjectedLogo className="w-8 h-8" size={32} />;
     }
   };
 
