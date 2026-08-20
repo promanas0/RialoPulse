@@ -1,4 +1,4 @@
-# RialoPulse ⚡
+# RialoPulse 
 
 > **Next-Generation Telemetry, Parallel VM Execution (REX), Genesis Validator Quorum, and Interactive Developer Sandbox for the Rialo Ecosystem.**
 
@@ -11,7 +11,7 @@
 
 ---
 
-## 📌 Executive Summary
+##  Executive Summary
 
 **RialoPulse** is an enterprise-grade infrastructure monitoring platform, Web3 developer suite, and real-time execution playground built for the high-throughput **Rialo Network**. 
 
@@ -39,15 +39,15 @@ Engineered to showcase Rialo's **50ms sub-second block finality** and **Rialo Ex
 
 ---
 
-## 🚀 Key Modules & Capabilities
+##  Key Modules & Capabilities
 
-### 1. 🌐 Tier-1 Spotlight Overview & 3D Interactive Globe
+### 1.  Tier-1 Spotlight Overview & 3D Interactive Globe
 - **Cyberpunk Dark Mode Aesthetic**: Deep obsidian backdrop (`#0A0A09`), top-center radial gradient spotlights (`rgba(200, 90, 39, 0.18)`), 3% SVG matte noise texture overlay, and animated glowing border beams.
 - **Ultra-Light WebGL Globe (`cobe`)**: Real-time 3D planetary mesh visualizing active validator nodes across North America, Europe, Asia Pacific, and South America with glowing consensus routing arcs, drag-to-rotate physics, and 1-click node auto-focusing.
 - **Dynamic Cursor Lighting Shaders**: Glassmorphism cards dynamically track mouse coordinates with soft radial follow-glow shaders.
 - **Live Counting Metrics Tickers**: 50ms Target, 18,420 Live TPS, 148 Global Validators, 99.98% Network Uptime.
 
-### 2. 🖥️ Interactive On-Chain CLI Playground
+### 2.  Interactive On-Chain CLI Playground
 - **Embedded Browser Terminal**: Full interactive Web3 command-line interface with CRT scanline styling and mechanical keystroke sounds.
 - **Real-Time Interactive Commands**:
   - `status`: Queries consensus proposers, block height, and runtime health.
@@ -61,7 +61,7 @@ Engineered to showcase Rialo's **50ms sub-second block finality** and **Rialo Ex
   - `help` / `clear`: Terminal buffer management.
 - **Quick Run Action Chips**: 1-click execution chips for instant terminal queries.
 
-### 3. 🛡️ Official Genesis & Validator Quorum Registry
+### 3.  Official Genesis & Validator Quorum Registry
 Directly synced with the official **[SubzeroLabs/rialo-testnet](https://github.com/SubzeroLabs/rialo-testnet)** genesis registry:
 - **Genesis Config Hash**: `b1cdca444af9a8e74f56fd9140c9820e3fa162e833cee90192383b1a9335d0f6`
 - **Genesis Multi-Sig Quorum**: 13 verified proposer signatures.
@@ -77,35 +77,35 @@ Directly synced with the official **[SubzeroLabs/rialo-testnet](https://github.c
   - `val.rialo.testnet.pops.one` (Pops.one)
   - `validator.rialo.staking.banansen.dev` (Banansen)
 
-### 4. 👛 Multi-Wallet Web3 Suite & Automatic Network Switcher
+### 4.  Multi-Wallet Web3 Suite & Automatic Network Switcher
 - **Official Vector SVG Brand Logos**: Pixel-perfect vector SVGs for **MetaMask**, **Phantom**, **Coinbase Wallet**, **Browser Injected (EIP-1193)**, and **Instant Reviewer Sandbox Wallet**.
 - **Instant Reviewer Sandbox Mode**: Pre-loaded sandbox wallet (`0x7140B35e69b59C39110B6C0753549fC054097140`) allowing testing without browser extensions.
 - **Automatic Network Detection & Switcher**: Automatic chain ID detection with 1-click switching via `wallet_switchEthereumChain` / `wallet_addEthereumChain` and a persistent Wrong Network banner.
 - **Sonner Transaction Toasts**: Transaction status alerts (Pending ⏳, Confirmed ✅, Failed ❌) equipped with direct **"View on Explorer ↗"** links.
 
-### 5. 🕹️ Market Reflex Arcade Game
+### 5.  Market Reflex Arcade Game
 - **Candlestick Conveyor**: Real-time candlestick stream (Green 🟢 Bullish / Red 🔴 Bearish) traveling toward a precision laser strike zone.
 - **Microsecond Decision Engine**: Sub-second keyboard (`ArrowUp` / `W` and `ArrowDown` / `S`) and mobile touch controls.
 - **Combo Multipliers & Speed Escalation**:
-  - 5+ Streak: `2x Multiplier 🔥`
-  - 10+ Streak: `3x Multiplier ⚡`
-  - 20+ Streak: `5x GODLIKE Multiplier 🚀`
+  - 5+ Streak: `2x Multiplier `
+  - 10+ Streak: `3x Multiplier `
+  - 20+ Streak: `5x GODLIKE Multiplier `
   - Conveyor speed accelerates dynamically to test human neural reflexes against 50ms block times.
 - **3 Hearts Life System & Trader Ranks**:
-  - `< 500 XP`: `Paper Hands 📄`
-  - `500 - 1,500 XP`: `Degen Scalper ⚡`
-  - `1,500 - 3,000 XP`: `High-Frequency Arbitrageur 🤖`
-  - `3,000+ XP`: `50ms Diamond Reflex Master 💎`
+  - `< 500 XP`: `Paper Hands `
+  - `500 - 1,500 XP`: `Degen Scalper `
+  - `1,500 - 3,000 XP`: `High-Frequency Arbitrageur `
+  - `3,000+ XP`: `50ms Diamond Reflex Master `
 - **Web3 Faucet Reward & Viral Sharing**: Score 500+ XP to claim 100 RIALO testnet tokens directly from the UI, and share high scores directly to X (Twitter).
 
-### 6. 🔊 Procedural Cyberpunk Web Audio Haptics
+### 6.  Procedural Cyberpunk Web Audio Haptics
 - **Zero External Assets**: 100% procedural synthetic sound engine generated using the browser's native **Web Audio API**.
 - Includes snappy click tones, micro-hover blips, mechanical terminal keystrokes, dual-tone confirmation chimes, and arcade hit/miss sound effects.
 - Global mute toggle button (🔊 / 🔇) in the header with persistent `localStorage` preference.
 
 ---
 
-## ⚙️ Network Specifications
+##  Network Specifications
 
 | Parameter | Value |
 | :--- | :--- |
@@ -122,7 +122,7 @@ Directly synced with the official **[SubzeroLabs/rialo-testnet](https://github.c
 
 ---
 
-## 🛠️ Tech Stack & Tooling
+##  Tech Stack & Tooling
 
 - **Core Framework**: [React 19](https://react.dev/) + [TypeScript 5](https://www.typescriptlang.org/)
 - **Build Engine & Bundler**: [Vite 8](https://vitejs.dev/) + Rolldown Fast Compiler
@@ -135,7 +135,7 @@ Directly synced with the official **[SubzeroLabs/rialo-testnet](https://github.c
 
 ---
 
-## 📂 Project Structure
+##  Project Structure
 
 ```
 RialoPulse/
@@ -178,7 +178,7 @@ RialoPulse/
 
 ---
 
-## 💻 Local Development & Setup
+##  Local Development & Setup
 
 ### Prerequisites
 - **Node.js**: `v18.0.0` or higher
@@ -215,12 +215,12 @@ RialoPulse/
 
 ---
 
-## 🧪 Testing Guide for Reviewers
+##  Testing Guide for Reviewers
 
 1. **Wallet Connection**: Click **"Connect Wallet"** in the top navigation bar. Choose between MetaMask, Phantom, Coinbase Wallet, Browser Injected, or the **Instant Reviewer Sandbox Wallet** to test without extensions.
 2. **One-Click Network Switch**: Switch your wallet to another chain (e.g., Ethereum Mainnet) to test the **Wrong Network Banner** and 1-click **"Switch to Rialo Testnet"** action.
 3. **Interactive CLI Terminal**: Scroll to the terminal below the hero section. Click quick chips or type `status`, `genesis`, `validators`, `faucet`, `tps`, or `rex`.
-4. **Market Reflex Arcade Game**: Navigate to the **"Market Reflex 🎮"** tab. Press `[▲]` / `[W]` for Green candles and `[▼]` / `[S]` for Red candles. Reach 500+ XP to unlock the 1-click **Claim 100 RIALO** reward.
+4. **Market Reflex Arcade Game**: Navigate to the **"Market Reflex "** tab. Press `[▲]` / `[W]` for Green candles and `[▼]` / `[S]` for Red candles. Reach 500+ XP to unlock the 1-click **Claim 100 RIALO** reward.
 5. **3D WebGL Globe**: Navigate to **"Nodes & Peers"** and toggle to **3D Globe**. Drag with the mouse to rotate, and click any node in the table to auto-focus the globe coordinates.
 6. **JSON-RPC Debugger**: Open **"Contract Sandbox"**, select `rialo_getGenesisConfig` or `rialo_getREXState`, and execute live queries.
 
